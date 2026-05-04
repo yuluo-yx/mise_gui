@@ -1,0 +1,19 @@
+{
+  "name": "mise-gui-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mise GUI packaging script entrypoints",
+  "packageManager": "npm@10.8.2",
+  "scripts": {
+    "help": "cat ./scripts/README.md",
+    "macos:dmg:background": "python3 ./scripts/generate_macos_dmg_background.py",
+    "macos:dmg:background:2x": "python3 ./scripts/generate_macos_dmg_background.py --scale 2",
+    "macos:debug:dmg": "bash ./scripts/package_macos_debug_dmg.sh",
+    "macos:release:app": "bash ./scripts/package_macos_release_app.sh",
+    "macos:release:app:skip-notarization": "SKIP_NOTARIZATION=1 bash ./scripts/package_macos_release_app.sh",
+    "macos:release:dmg": "bash ./scripts/package_macos_release_dmg.sh",
+    "macos:release:dmg:skip-notarization": "SKIP_NOTARIZATION=1 bash ./scripts/package_macos_release_dmg.sh",
+    "macos:release:zip": "bash ./scripts/package_macos_release_zip.sh",
+    "macos:release:zip:skip-notarization": "SKIP_NOTARIZATION=1 bash ./scripts/package_macos_release_zip.sh"
+  }
+}
