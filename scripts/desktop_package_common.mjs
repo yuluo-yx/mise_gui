@@ -60,7 +60,7 @@ export function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: ROOT_DIR,
     stdio: 'inherit',
-    shell: false,
+    shell: process.platform === 'win32',
     ...options,
   });
 
