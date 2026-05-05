@@ -7,6 +7,13 @@
   简体中文 · <a href="README.en.md">English</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/likaia/mise_gui/releases"><img src="https://img.shields.io/github/downloads/likaia/mise_gui/total.svg?style=flat" alt="downloads"></a>
+  <a href="https://github.com/likaia/mise_gui/releases"><img src="https://img.shields.io/github/release/likaia/mise_gui.svg?style=flat" alt="latest version"></a>
+  <a href="LICENSE.txt"><img src="https://img.shields.io/github/license/likaia/mise_gui.svg?style=flat" alt="license"></a>
+  <a href="https://github.com/likaia/mise_gui/releases"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue.svg?style=flat" alt="platform"></a>
+</p>
+
 # Mise GUI
 
 一个面向开发者的 mise 可视化管理软件，通过图形化界面快速管理本地工具链版本以及项目内所依赖工具版本。
