@@ -17,6 +17,9 @@
 #   SKIP_NOTARIZATION
 #     可选。传 `1` 时跳过公证和 staple；
 #     其他值都会执行完整发布流程。默认值：0。
+#   SKIP_CODESIGN
+#     可选。传 `1` 时跳过 codesign、公证和 staple，适合 CI 里生成未签名测试包。
+#     默认值：0。
 #   SIGNING_IDENTITY
 #     可选。覆盖应用签名使用的 Developer ID Application 证书。
 #     默认值：自动选择第一个可用证书。
@@ -37,6 +40,7 @@ APP_PATH="$STAGE_DIR/$APP_NAME.app"
 NOTARIZE_ZIP="$TMP_DIR/notarize/${APP_NAME}.zip"
 EXTRACT_DIR="$TMP_DIR/extracted"
 SKIP_NOTARIZATION="${SKIP_NOTARIZATION:-0}"
+SKIP_CODESIGN="${SKIP_CODESIGN:-0}"
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -44,16 +48,20 @@ cleanup() {
 trap cleanup EXIT
 
 ensure_dist_dir
-ensure_signing_identity
+if [[ "$SKIP_CODESIGN" != "1" ]]; then
+  ensure_signing_identity
+fi
 mkdir -p "$STAGE_DIR"
 mkdir -p "$(dirname "$NOTARIZE_ZIP")" "$EXTRACT_DIR"
 rm -f "$FINAL_ZIP"
 
 build_macos_release
 copy_release_app_to_dir "$STAGE_DIR"
-sign_app "$APP_PATH"
+if [[ "$SKIP_CODESIGN" != "1" ]]; then
+  sign_app "$APP_PATH"
+fi
 
-if [[ "$SKIP_NOTARIZATION" != "1" ]]; then
+if [[ "$SKIP_CODESIGN" != "1" && "$SKIP_NOTARIZATION" != "1" ]]; then
   zip_app "$APP_PATH" "$NOTARIZE_ZIP"
   submit_for_notarization "$NOTARIZE_ZIP"
 

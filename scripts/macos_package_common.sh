@@ -41,11 +41,19 @@ generate_background() {
 }
 
 build_macos_release() {
-  mise exec -- flutter build macos --release
+  if [[ "${USE_MISE:-1}" != "0" ]] && command -v mise >/dev/null 2>&1; then
+    mise exec -- flutter build macos --release
+  else
+    flutter build macos --release
+  fi
 }
 
 build_macos_debug() {
-  mise exec -- flutter build macos --debug
+  if [[ "${USE_MISE:-1}" != "0" ]] && command -v mise >/dev/null 2>&1; then
+    mise exec -- flutter build macos --debug
+  else
+    flutter build macos --debug
+  fi
 }
 
 copy_release_app_to_dir() {
