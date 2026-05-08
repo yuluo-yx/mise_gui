@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mise_gui/app/theme/app_theme.dart';
 import 'package:mise_gui/models/app_models.dart';
-import 'package:mise_gui/shared/ui/status_badge.dart';
 
 Future<void> showHistoryEntryDialog(
   BuildContext context, {
@@ -22,20 +21,17 @@ class _HistoryEntryDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
+    final statusColor = entry.isFailure ? colors.warning : colors.accent;
 
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(28),
       child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 960,
-          maxHeight: 720,
-        ),
-        padding: const EdgeInsets.all(24),
+        constraints: const BoxConstraints(maxWidth: 980, maxHeight: 760),
         decoration: BoxDecoration(
           color: colors.panel,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: colors.borderStrong),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.borderStrong.withValues(alpha: 0.5)),
           boxShadow: [
             BoxShadow(
               color: colors.backgroundDeep.withValues(alpha: 0.16),
@@ -47,105 +43,96 @@ class _HistoryEntryDialog extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      StatusBadge(
-                        label: entry.status.label,
-                        level: entry.isFailure ? HealthLevel.warning : entry.level,
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        '操作详情',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        entry.detail,
-                        style: TextStyle(
-                          color: colors.textMuted,
-                          height: 1.55,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _FactChip(label: '时间', value: entry.timestamp),
-                _FactChip(label: '结果', value: entry.outcomeLabel),
-                if (entry.exitCode != null)
-                  _FactChip(label: '退出码', value: '${entry.exitCode}'),
-                if (entry.durationMs != null)
-                  _FactChip(label: '耗时', value: '${entry.durationMs}ms'),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(26, 24, 20, 20),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 6,
-                    child: _CodeSection(
-                      title: '实际命令',
-                      content: entry.command,
-                      trailing: TextButton.icon(
-                        onPressed: () async {
-                          await Clipboard.setData(ClipboardData(text: entry.command));
-                          if (!context.mounted) {
-                            return;
-                          }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('已复制实际 CLI 命令。')),
-                          );
-                        },
-                        icon: const Icon(Icons.content_copy_rounded, size: 16),
-                        label: const Text('复制命令'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 7,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _CodeSection(
-                            title: '标准输出',
-                            content: entry.stdout?.trim().isNotEmpty == true
-                                ? entry.stdout!
-                                : '没有记录到标准输出。',
+                        _DialogStatusMeta(
+                          label: entry.status.label,
+                          color: statusColor,
+                          muted: !entry.isFailure,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          '操作详情',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          entry.detail,
+                          style: TextStyle(
+                            color: colors.textMuted,
+                            height: 1.55,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: _CodeSection(
-                            title: '错误输出',
-                            content: entry.stderr?.trim().isNotEmpty == true
-                                ? entry.stderr!
-                                : '没有记录到错误输出。',
-                            emphasize: entry.isFailure,
-                          ),
-                        ),
+                        const SizedBox(height: 10),
+                        _DialogContextLine(entry: entry),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
                 ],
+              ),
+            ),
+            Divider(height: 1, color: colors.border.withValues(alpha: 0.46)),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(26, 22, 26, 26),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CommandBlock(entry: entry),
+                    const SizedBox(height: 18),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final wide = constraints.maxWidth >= 760;
+                        final stdout = _LogPanel(
+                          title: '标准输出',
+                          content: entry.stdout?.trim().isNotEmpty == true
+                              ? entry.stdout!
+                              : '没有记录到标准输出。',
+                        );
+                        final stderr = _LogPanel(
+                          title: entry.isFailure ? '错误输出' : '运行日志',
+                          content: entry.stderr?.trim().isNotEmpty == true
+                              ? entry.stderr!
+                              : entry.isFailure
+                              ? '没有记录到错误输出。'
+                              : '没有记录到运行日志。',
+                          emphasize: entry.isFailure,
+                        );
+
+                        if (!wide) {
+                          return Column(
+                            children: [
+                              stdout,
+                              const SizedBox(height: 14),
+                              stderr,
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: stdout),
+                            const SizedBox(width: 14),
+                            Expanded(child: stderr),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -155,48 +142,180 @@ class _HistoryEntryDialog extends StatelessWidget {
   }
 }
 
-class _FactChip extends StatelessWidget {
-  const _FactChip({
+class _DialogStatusMeta extends StatelessWidget {
+  const _DialogStatusMeta({
     required this.label,
-    required this.value,
+    required this.color,
+    required this.muted,
   });
 
   final String label;
-  final String value;
+  final Color color;
+  final bool muted;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.panelRaised.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colors.border),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: muted ? 0.74 : 0.92),
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: muted ? colors.textMuted : color,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogContextLine extends StatelessWidget {
+  const _DialogContextLine({required this.entry});
+
+  final HistoryEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final parts = <String>[entry.timestamp];
+    if (entry.exitCode != null) {
+      parts.add('exit ${entry.exitCode}');
+    }
+    if (entry.durationMs != null) {
+      parts.add('${entry.durationMs}ms');
+    }
+
+    return Text(
+      parts.join('  ·  '),
+      style: TextStyle(
+        color: colors.textMuted.withValues(alpha: 0.9),
+        fontSize: 12,
+        fontFamily: 'FiraCode',
+        fontWeight: FontWeight.w600,
       ),
-      child: Text(
-        '$label: $value',
-        style: TextStyle(
-          color: colors.textMuted,
-          fontSize: 12,
-          fontFamily: 'FiraCode',
+    );
+  }
+}
+
+class _CommandBlock extends StatelessWidget {
+  const _CommandBlock({required this.entry});
+
+  final HistoryEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return _SurfaceBlock(
+      title: '实际命令',
+      trailing: TextButton.icon(
+        onPressed: () async {
+          await Clipboard.setData(ClipboardData(text: entry.command));
+          if (!context.mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('已复制实际 CLI 命令。')));
+        },
+        icon: const Icon(Icons.content_copy_rounded, size: 16),
+        label: const Text('复制命令'),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.backgroundSoft.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.border.withValues(alpha: 0.34)),
+        ),
+        child: SelectableText(
+          entry.command,
+          style: TextStyle(
+            color: colors.textPrimary,
+            fontFamily: 'FiraCode',
+            fontSize: 13,
+            height: 1.55,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
   }
 }
 
-class _CodeSection extends StatelessWidget {
-  const _CodeSection({
+class _LogPanel extends StatelessWidget {
+  const _LogPanel({
     required this.title,
     required this.content,
-    this.trailing,
     this.emphasize = false,
   });
 
   final String title;
   final String content;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return _SurfaceBlock(
+      title: title,
+      emphasize: emphasize,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 190, maxHeight: 280),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.backgroundSoft.withValues(alpha: 0.62),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: emphasize
+                  ? colors.warning.withValues(alpha: 0.28)
+                  : colors.border.withValues(alpha: 0.3),
+            ),
+          ),
+          child: SingleChildScrollView(
+            child: SelectableText(
+              content,
+              style: TextStyle(
+                fontFamily: 'FiraCode',
+                fontSize: 12.5,
+                height: 1.58,
+                color: emphasize ? colors.warning : colors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SurfaceBlock extends StatelessWidget {
+  const _SurfaceBlock({
+    required this.title,
+    required this.child,
+    this.trailing,
+    this.emphasize = false,
+  });
+
+  final String title;
+  final Widget child;
   final Widget? trailing;
   final bool emphasize;
 
@@ -208,12 +327,12 @@ class _CodeSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: colors.backgroundSoft,
-        borderRadius: BorderRadius.circular(22),
+        color: colors.panelRaised.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: emphasize
-              ? colors.danger.withValues(alpha: 0.28)
-              : colors.border,
+              ? colors.warning.withValues(alpha: 0.24)
+              : colors.border.withValues(alpha: 0.38),
         ),
       ),
       child: Column(
@@ -224,9 +343,10 @@ class _CodeSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    color: emphasize ? colors.warning : colors.textPrimary,
                     fontFamily: 'FiraCode',
-                    fontSize: 17,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -235,19 +355,7 @@ class _CodeSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: SingleChildScrollView(
-              child: SelectableText(
-                content,
-                style: TextStyle(
-                  fontFamily: 'FiraCode',
-                  fontSize: 13,
-                  height: 1.6,
-                  color: emphasize ? colors.danger : colors.textPrimary,
-                ),
-              ),
-            ),
-          ),
+          child,
         ],
       ),
     );
