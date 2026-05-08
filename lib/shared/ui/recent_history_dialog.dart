@@ -4,7 +4,6 @@ import 'package:mise_gui/app/bootstrap/dependencies.dart';
 import 'package:mise_gui/app/theme/app_theme.dart';
 import 'package:mise_gui/models/app_models.dart';
 import 'package:mise_gui/shared/ui/history_entry_dialog.dart';
-import 'package:mise_gui/shared/ui/status_badge.dart';
 
 Future<void> showRecentHistoryDialog(BuildContext context) {
   return showDialog<void>(
@@ -137,7 +136,6 @@ class RecentHistoryListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
-    final level = entry.isFailure ? HealthLevel.warning : entry.level;
     final preview = entry.isFailure
         ? (entry.stderrPreview ?? entry.stdoutPreview)
         : (entry.stdoutPreview ?? entry.stderrPreview);
@@ -155,18 +153,12 @@ class RecentHistoryListTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  StatusBadge(label: entry.status.label, level: level),
-                  const SizedBox(width: 10),
-                  Text(
-                    entry.timestamp,
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 12,
-                      fontFamily: 'FiraCode',
-                    ),
-                  ),
+                  _HistoryStatusMeta(entry: entry),
                   const Spacer(),
-                  Icon(Icons.chevron_right_rounded, color: colors.textMuted),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: colors.textMuted.withValues(alpha: 0.74),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -211,6 +203,60 @@ class RecentHistoryListTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HistoryStatusMeta extends StatelessWidget {
+  const _HistoryStatusMeta({required this.entry});
+
+  final HistoryEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final statusColor = entry.isFailure ? colors.warning : colors.accent;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: entry.isFailure ? 0.9 : 0.74),
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          entry.status.label,
+          style: TextStyle(
+            color: entry.isFailure ? statusColor : colors.textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(
+            '·',
+            style: TextStyle(
+              color: colors.textMuted.withValues(alpha: 0.72),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Text(
+          entry.timestamp,
+          style: TextStyle(
+            color: colors.textMuted.withValues(alpha: 0.92),
+            fontSize: 12,
+            fontFamily: 'FiraCode',
+          ),
+        ),
+      ],
     );
   }
 }
