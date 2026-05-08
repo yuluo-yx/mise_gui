@@ -49,6 +49,16 @@ class _ActionPreviewDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
+    final commandOnly =
+        !data.requiresConfirmation &&
+        data.diffPreview?.trim().isNotEmpty != true &&
+        data.affectedFiles.isEmpty &&
+        data.impactScope.isEmpty &&
+        data.riskNotes.isEmpty;
+
+    if (commandOnly) {
+      return _CommandOnlyPreviewDialog(data: data);
+    }
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -172,15 +182,15 @@ class _ActionPreviewDialog extends StatelessWidget {
                           ],
                         ),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text(data.requiresConfirmation ? '取消' : '关闭'),
-                    ),
-                    if (data.requiresConfirmation) ...[
+                if (data.requiresConfirmation) ...[
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('取消'),
+                      ),
                       const SizedBox(width: 12),
                       FilledButton.icon(
                         onPressed: () => Navigator.of(context).pop(true),
@@ -188,8 +198,8 @@ class _ActionPreviewDialog extends StatelessWidget {
                         label: Text(data.confirmLabel!),
                       ),
                     ],
-                  ],
-                ),
+                  ),
+                ],
               ],
             );
           },
@@ -243,6 +253,126 @@ class _MetaPanel extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _CommandOnlyPreviewDialog extends StatelessWidget {
+  const _CommandOnlyPreviewDialog({required this.data});
+
+  final ActionPreviewDialogData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(28),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 720),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: colors.panel,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: colors.borderStrong.withValues(alpha: 0.62),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colors.backgroundDeep.withValues(alpha: 0.16),
+              blurRadius: 34,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data.title,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        data.summary,
+                        style: TextStyle(color: colors.textMuted, height: 1.5),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            _CodeCard(
+              title: '实际命令',
+              content: data.command,
+              expandContent: false,
+              trailing: TextButton.icon(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: data.command));
+                  if (!context.mounted) {
+                    return;
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('已复制实际 CLI 命令。')),
+                  );
+                },
+                icon: const Icon(Icons.content_copy_rounded, size: 16),
+                label: const Text('复制命令'),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const _CommandPreviewHint(text: '这里只用于查看和复制，关闭窗口不会执行命令。'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CommandPreviewHint extends StatelessWidget {
+  const _CommandPreviewHint({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.info_outline_rounded,
+          size: 16,
+          color: colors.textMuted.withValues(alpha: 0.86),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: colors.textMuted.withValues(alpha: 0.9),
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -320,11 +450,17 @@ class _MetaLine extends StatelessWidget {
 }
 
 class _CodeCard extends StatelessWidget {
-  const _CodeCard({required this.title, required this.content, this.trailing});
+  const _CodeCard({
+    required this.title,
+    required this.content,
+    this.trailing,
+    this.expandContent = true,
+  });
 
   final String title;
   final String content;
   final Widget? trailing;
+  final bool expandContent;
 
   @override
   Widget build(BuildContext context) {
@@ -357,19 +493,34 @@ class _CodeCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: SingleChildScrollView(
-              child: SelectableText(
-                content,
-                style: const TextStyle(
-                  fontFamily: 'FiraCode',
-                  fontSize: 13,
-                  height: 1.6,
-                ),
-              ),
+          if (expandContent)
+            Expanded(child: _CommandText(content: content))
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: _CommandText(content: content),
             ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+class _CommandText extends StatelessWidget {
+  const _CommandText({required this.content});
+
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: SelectableText(
+        content,
+        style: const TextStyle(
+          fontFamily: 'FiraCode',
+          fontSize: 13,
+          height: 1.6,
+        ),
       ),
     );
   }

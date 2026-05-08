@@ -1095,9 +1095,9 @@ class _ToolWorkspace extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ToolHeroPanel(tool: tool, onOpenPreview: onOpenPreview),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         _VersionInventoryPanel(
-          title: '本机已下载版本',
+          title: '本机版本',
           subtitle: '已安装到本机，可直接切换。',
           versions: tool.installedVersions,
           emptyState: const _PanelEmptyStateData(
@@ -1108,9 +1108,9 @@ class _ToolWorkspace extends StatelessWidget {
           ),
           onOpenPreview: onOpenPreview,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
         _VersionInventoryPanel(
-          title: '远端可用版本',
+          title: '远端版本',
           subtitle: '可安装或升级的远端版本。',
           versions: tool.remoteVersions,
           emptyState: const _PanelEmptyStateData(
@@ -1138,6 +1138,7 @@ class _ToolHeroPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
     final recommendedVersion = _recommendedVersion(tool);
     final latestLabel = switch (tool.remoteState) {
       ToolRemoteState.pending => '读取中',
@@ -1145,98 +1146,99 @@ class _ToolHeroPanel extends StatelessWidget {
       ToolRemoteState.ready => tool.latestStableVersion,
     };
 
-    return AppPanel(
-      showShadow: false,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.panelRaised.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.border.withValues(alpha: 0.36)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stacked = constraints.maxWidth < 760;
-              final currentMetric = _ToolMetricCard(
-                label: '当前版本',
-                value: tool.activeVersion,
-                level: tool.level,
-              );
-              final latestMetric = _ToolMetricCard(
-                label: '最新稳定版',
-                value: latestLabel,
-                level: switch (tool.remoteState) {
-                  ToolRemoteState.unavailable => HealthLevel.warning,
-                  _ when tool.hasUpdate => HealthLevel.healthy,
-                  _ => HealthLevel.info,
-                },
-              );
-
-              if (stacked) {
-                return Column(
-                  children: [
-                    currentMetric,
-                    const SizedBox(height: 14),
-                    latestMetric,
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(child: currentMetric),
-                  const SizedBox(width: 16),
-                  Expanded(child: latestMetric),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 18),
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: 16,
+            runSpacing: 14,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (tool.hasUpdate && recommendedVersion != null)
-                FilledButton.icon(
-                  onPressed: () => onOpenPreview(
-                    context,
-                    ActionPreviewDialogData(
-                      title: '升级 ${tool.name} 到 ${recommendedVersion.version}',
-                      summary: '会先安装新版本，再切换到这个版本。',
-                      command: recommendedVersion.commandPreview,
-                      level: HealthLevel.healthy,
-                      affectedFiles: _affectedFilesForToolCommand(
-                        recommendedVersion.commandPreview,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText(
+                      '当前 ${tool.activeVersion}',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontFamily: 'FiraCode',
+                        fontSize: 16,
                       ),
-                      impactScope: const ['会新增本地已安装版本。', '默认使用的版本会切换到新版本。'],
-                      riskNotes: const ['升级时需要访问网络，过程可能会持续一段时间。'],
-                      confirmLabel: '确认升级',
                     ),
-                  ),
-                  icon: const Icon(Icons.upgrade_rounded),
-                  label: Text('升级到 ${recommendedVersion.version}'),
-                ),
-              OutlinedButton.icon(
-                onPressed: () => onOpenPreview(
-                  context,
-                  ActionPreviewDialogData(
-                    title: '卸载 ${tool.name}',
-                    summary: '会先从全局配置里移除这个工具，再删除本机上这个工具的所有已安装版本。',
-                    command:
-                        'mise use --global --remove ${tool.id}\n'
-                        'mise uninstall --all ${tool.id}',
-                    level: HealthLevel.warning,
-                    affectedFiles: _affectedFilesForToolCommand(
-                      'mise use --global --remove ${tool.id}\n'
-                      'mise uninstall --all ${tool.id}',
+                    const SizedBox(height: 8),
+                    Text(
+                      '最新稳定版 $latestLabel',
+                      style: TextStyle(
+                        color: colors.textMuted,
+                        fontSize: 13,
+                        fontFamily: 'FiraCode',
+                      ),
                     ),
-                    impactScope: const [
-                      '全局默认配置里不再声明这个工具。',
-                      '这个工具的所有本地已安装版本都会被移除。',
-                      '如果其他配置仍然依赖这个工具，相关命令仍可能报缺失。',
-                    ],
-                    riskNotes: const ['卸载前请确认没有其他配置还在依赖这个工具。'],
-                    confirmLabel: '确认卸载',
-                  ),
+                  ],
                 ),
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('卸载'),
+              ),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  if (tool.hasUpdate && recommendedVersion != null)
+                    FilledButton.icon(
+                      onPressed: () => onOpenPreview(
+                        context,
+                        ActionPreviewDialogData(
+                          title:
+                              '升级 ${tool.name} 到 ${recommendedVersion.version}',
+                          summary: '会先安装新版本，再切换到这个版本。',
+                          command: recommendedVersion.commandPreview,
+                          level: HealthLevel.healthy,
+                          affectedFiles: _affectedFilesForToolCommand(
+                            recommendedVersion.commandPreview,
+                          ),
+                          impactScope: const ['会新增本地已安装版本。', '默认使用的版本会切换到新版本。'],
+                          riskNotes: const ['升级时需要访问网络，过程可能会持续一段时间。'],
+                          confirmLabel: '确认升级',
+                        ),
+                      ),
+                      icon: const Icon(Icons.upgrade_rounded),
+                      label: Text('升级到 ${recommendedVersion.version}'),
+                    ),
+                  TextButton.icon(
+                    onPressed: () => onOpenPreview(
+                      context,
+                      ActionPreviewDialogData(
+                        title: '卸载 ${tool.name}',
+                        summary: '会先从全局配置里移除这个工具，再删除本机上这个工具的所有已安装版本。',
+                        command:
+                            'mise use --global --remove ${tool.id}\n'
+                            'mise uninstall --all ${tool.id}',
+                        level: HealthLevel.warning,
+                        affectedFiles: _affectedFilesForToolCommand(
+                          'mise use --global --remove ${tool.id}\n'
+                          'mise uninstall --all ${tool.id}',
+                        ),
+                        impactScope: const [
+                          '全局默认配置里不再声明这个工具。',
+                          '这个工具的所有本地已安装版本都会被移除。',
+                          '如果其他配置仍然依赖这个工具，相关命令仍可能报缺失。',
+                        ],
+                        riskNotes: const ['卸载前请确认没有其他配置还在依赖这个工具。'],
+                        confirmLabel: '确认卸载',
+                      ),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    label: const Text('卸载工具'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1279,62 +1281,6 @@ class _ToolHeroPanel extends StatelessWidget {
   }
 }
 
-class _ToolMetricCard extends StatelessWidget {
-  const _ToolMetricCard({
-    required this.label,
-    required this.value,
-    required this.level,
-  });
-
-  final String label;
-  final String value;
-  final HealthLevel level;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppTheme.colorsOf(context);
-    final accent = switch (level) {
-      HealthLevel.healthy => colors.accent,
-      HealthLevel.info => colors.info,
-      HealthLevel.warning => colors.warning,
-      HealthLevel.critical => colors.danger,
-    };
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.panelRaised.withValues(alpha: 0.84),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: colors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: colors.textMuted,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SelectableText(
-            value,
-            style: TextStyle(
-              color: accent,
-              fontFamily: 'FiraCode',
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _VersionInventoryPanel extends StatelessWidget {
   const _VersionInventoryPanel({
     required this.title,
@@ -1356,7 +1302,16 @@ class _VersionInventoryPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
+    final colors = AppTheme.colorsOf(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.panelRaised.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.border.withValues(alpha: 0.32)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1375,40 +1330,25 @@ class _VersionInventoryPanel extends StatelessWidget {
                     title: '当前没有可展示的数据',
                     message: '稍后可以重新同步，或先查看命令结果。',
                     level: HealthLevel.info,
-              ),
+                  ),
               onOpenPreview: onOpenPreview,
             )
           else
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.colorsOf(context).panelRaised.withValues(
-                  alpha: 0.68,
-                ),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppTheme.colorsOf(context).border),
-              ),
-              child: Column(
-                children: [
-                  for (var index = 0; index < versions.length; index++) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      child: _VersionCard(
-                        version: versions[index],
-                        onOpenPreview: onOpenPreview,
-                      ),
+            Column(
+              children: [
+                for (var index = 0; index < versions.length; index++) ...[
+                  _VersionCard(
+                    version: versions[index],
+                    onOpenPreview: onOpenPreview,
+                  ),
+                  if (index != versions.length - 1)
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: colors.border.withValues(alpha: 0.46),
                     ),
-                    if (index != versions.length - 1)
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: AppTheme.colorsOf(context).border,
-                      ),
-                  ],
                 ],
-              ),
+              ],
             ),
         ],
       ),
@@ -1428,81 +1368,16 @@ class _VersionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
     final statusLabel = _statusLabel();
     final statusLevel = _statusLevel();
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final stacked = constraints.maxWidth < 520;
-        final actionRow = Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: WrapAlignment.end,
-          children: [
-            if (version.isActive)
-              TextButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.check_circle_rounded),
-                label: const Text('当前使用'),
-              )
-            else if (version.isInstalled)
-              OutlinedButton(
-                onPressed: () => onOpenPreview(
-                  context,
-                  ActionPreviewDialogData(
-                    title: '切换到 ${version.version}',
-                    summary: '这个版本已经在本机安装，确认后会开始版本切换。',
-                    command: version.commandPreview,
-                    level: version.level,
-                    affectedFiles: _affectedFilesForToolCommand(
-                      version.commandPreview,
-                    ),
-                    impactScope: const [
-                      '当前工具的默认激活版本会变化。',
-                      '相关项目的解析结果可能随之更新。',
-                    ],
-                    riskNotes: const ['切换前请先确认是否有项目级版本覆盖。'],
-                    confirmLabel: '确认切换',
-                  ),
-                ),
-                child: const Text('切换'),
-              )
-            else
-              FilledButton(
-                onPressed: () => onOpenPreview(
-                  context,
-                  ActionPreviewDialogData(
-                    title: '安装 ${version.version}',
-                    summary: '这个版本还没安装到本机，确认后会开始安装。',
-                    command: version.commandPreview,
-                    level: version.level,
-                    affectedFiles: _affectedFilesForToolCommand(
-                      version.commandPreview,
-                    ),
-                    impactScope: const [
-                      '会新增本地已安装版本记录。',
-                      '如果接着激活，当前版本来源也可能改变。',
-                    ],
-                    riskNotes: const ['安装时会访问网络，并更新本地缓存。'],
-                    confirmLabel: version.isRecommended ? '确认升级' : '确认安装',
-                  ),
-                ),
-                child: Text(version.isRecommended ? '升级' : '安装'),
-              ),
-            IconButton.outlined(
-              tooltip: '查看命令',
-              onPressed: () => onOpenPreview(
-                context,
-                ActionPreviewDialogData(
-                  title: '命令预览',
-                  summary: '这条命令是当前界面为这个版本动作准备的实际 CLI。',
-                  command: version.commandPreview,
-                  level: version.level,
-                ),
-              ),
-              icon: const Icon(Icons.terminal_rounded),
-            ),
-          ],
+        final actionRow = _VersionActions(
+          version: version,
+          onOpenPreview: onOpenPreview,
         );
 
         final info = Column(
@@ -1510,9 +1385,10 @@ class _VersionCard extends StatelessWidget {
           children: [
             SelectableText(
               version.version,
-              style: const TextStyle(
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontFamily: 'FiraCode',
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1527,20 +1403,25 @@ class _VersionCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 14),
               info,
               const SizedBox(height: 12),
               actionRow,
+              const SizedBox(height: 14),
             ],
           );
         }
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(child: info),
-            const SizedBox(width: 16),
-            actionRow,
-          ],
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: info),
+              const SizedBox(width: 16),
+              actionRow,
+            ],
+          ),
         );
       },
     );
@@ -1567,6 +1448,80 @@ class _VersionCard extends StatelessWidget {
       return HealthLevel.info;
     }
     return version.level;
+  }
+}
+
+class _VersionActions extends StatelessWidget {
+  const _VersionActions({required this.version, required this.onOpenPreview});
+
+  final ToolVersionRecord version;
+  final Future<void> Function(
+    BuildContext context,
+    ActionPreviewDialogData data,
+  )
+  onOpenPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (!version.isActive && version.isInstalled)
+          TextButton(
+            onPressed: () => onOpenPreview(
+              context,
+              ActionPreviewDialogData(
+                title: '切换到 ${version.version}',
+                summary: '这个版本已经在本机安装，确认后会开始版本切换。',
+                command: version.commandPreview,
+                level: version.level,
+                affectedFiles: _affectedFilesForToolCommand(
+                  version.commandPreview,
+                ),
+                impactScope: const ['当前工具的默认激活版本会变化。', '相关项目的解析结果可能随之更新。'],
+                riskNotes: const ['切换前请先确认是否有项目级版本覆盖。'],
+                confirmLabel: '确认切换',
+              ),
+            ),
+            child: const Text('切换'),
+          )
+        else if (!version.isInstalled)
+          TextButton(
+            onPressed: () => onOpenPreview(
+              context,
+              ActionPreviewDialogData(
+                title: '安装 ${version.version}',
+                summary: '这个版本还没安装到本机，确认后会开始安装。',
+                command: version.commandPreview,
+                level: version.level,
+                affectedFiles: _affectedFilesForToolCommand(
+                  version.commandPreview,
+                ),
+                impactScope: const ['会新增本地已安装版本记录。', '如果接着激活，当前版本来源也可能改变。'],
+                riskNotes: const ['安装时会访问网络，并更新本地缓存。'],
+                confirmLabel: version.isRecommended ? '确认升级' : '确认安装',
+              ),
+            ),
+            child: Text(version.isRecommended ? '升级' : '安装'),
+          ),
+        IconButton(
+          tooltip: '查看命令',
+          onPressed: () => onOpenPreview(
+            context,
+            ActionPreviewDialogData(
+              title: '命令预览',
+              summary: '这条命令是当前界面为这个版本动作准备的实际 CLI。',
+              command: version.commandPreview,
+              level: version.level,
+            ),
+          ),
+          icon: const Icon(Icons.terminal_rounded),
+        ),
+      ],
+    );
   }
 }
 
