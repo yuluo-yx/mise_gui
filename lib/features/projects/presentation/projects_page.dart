@@ -384,49 +384,64 @@ class _ScanDirectoriesPanel extends StatelessWidget {
     final colors = AppTheme.colorsOf(context);
 
     return AppPanel(
+      padding: const EdgeInsets.all(18),
+      radius: 20,
+      backgroundAlpha: 0.58,
+      borderAlpha: 0.42,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  '扫描目录',
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('扫描目录', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 8),
+                    Text(
+                      '决定扫描哪些工作区。右侧只显示覆盖了全局版本的项目。',
+                      style: TextStyle(color: colors.textMuted, height: 1.45),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(width: 12),
               if (directories.isNotEmpty)
-                StatusBadge(
-                  label: '${directories.length} 个',
-                  level: HealthLevel.healthy,
+                Text(
+                  '${directories.length} 个',
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            '决定扫描哪些工作区。右侧只会显示覆盖了全局版本的项目。',
-            style: TextStyle(color: colors.textMuted, height: 1.45),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Align(
             alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
+            child: TextButton.icon(
               onPressed: onAddDirectory,
               icon: const Icon(Icons.create_new_folder_rounded),
               label: const Text('添加目录'),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (directories.isEmpty)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               decoration: BoxDecoration(
-                color: colors.backgroundSoft.withValues(alpha: 0.74),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: colors.border),
+                color: colors.panelRaised.withValues(alpha: 0.24),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colors.border.withValues(alpha: 0.3)),
               ),
-              child: const Text('还没有扫描目录。先添加一个目录，再开始扫描项目覆盖。'),
+              child: Text(
+                '还没有扫描目录。先添加一个目录，再开始扫描项目覆盖。',
+                style: TextStyle(color: colors.textMuted, height: 1.45),
+              ),
             )
           else
             Column(
@@ -464,7 +479,7 @@ class _ScanDirectoriesPanel extends StatelessWidget {
                     },
                   ),
                   if (index != directories.length - 1)
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                 ],
               ],
             ),
@@ -515,11 +530,11 @@ class _ScanDirectoryCard extends StatelessWidget {
     final colors = AppTheme.colorsOf(context);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colors.panelRaised.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.border),
+        color: colors.panelRaised.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.border.withValues(alpha: 0.34)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,31 +567,16 @@ class _ScanDirectoryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                directory.enabled ? '已纳入扫描' : '未纳入扫描',
-                style: TextStyle(
-                  color: directory.enabled ? colors.accent : colors.textMuted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              _DirectoryStatusLabel(enabled: directory.enabled),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            _buildSummaryText(),
-            style: TextStyle(
-              color: overrideProjectCount > 0
-                  ? colors.warning
-                  : colors.textMuted,
-              height: 1.45,
-              fontWeight: overrideProjectCount > 0
-                  ? FontWeight.w600
-                  : FontWeight.w400,
-            ),
+          const SizedBox(height: 10),
+          _DirectoryScanMeta(
+            projectCount: projectCount,
+            overrideProjectCount: overrideProjectCount,
           ),
           if (projectCount > 0) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Theme(
               data: Theme.of(
                 context,
@@ -586,33 +586,33 @@ class _ScanDirectoryCard extends StatelessWidget {
                 tilePadding: EdgeInsets.zero,
                 childrenPadding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
-                title: const Text(
-                  '已扫描项目',
-                  style: TextStyle(fontWeight: FontWeight.w700),
+                title: Text(
+                  '项目 $projectCount',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                subtitle: Text(
-                  '点开查看项目名称和路径',
-                  style: TextStyle(color: colors.textMuted, fontSize: 12),
-                ),
+                subtitle: overrideProjectCount > 0
+                    ? Text(
+                        '$overrideProjectCount 个覆盖全局版本',
+                        style: TextStyle(color: colors.warning, fontSize: 12),
+                      )
+                    : null,
                 children: [
-                  const SizedBox(height: 4),
+                  Divider(
+                    height: 1,
+                    color: colors.border.withValues(alpha: 0.36),
+                  ),
                   ...List.generate(projects.length, (index) {
                     final project = projects[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == projects.length - 1 ? 0 : 10,
-                      ),
-                      child: _ScannedProjectRow(project: project),
-                    );
+                    return _ScannedProjectRow(project: project);
                   }),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
-              OutlinedButton.icon(
+              TextButton.icon(
                 onPressed: () => onToggle(!directory.enabled),
                 icon: Icon(
                   directory.enabled
@@ -620,24 +620,13 @@ class _ScanDirectoryCard extends StatelessWidget {
                       : Icons.add_circle_outline_rounded,
                   size: 18,
                 ),
-                label: Text(directory.enabled ? '移出扫描范围' : '加入扫描范围'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  foregroundColor: colors.textMuted,
-                  side: BorderSide(color: colors.border),
-                  backgroundColor: colors.backgroundSoft.withValues(
-                    alpha: 0.52,
-                  ),
-                ),
+                label: Text(directory.enabled ? '暂停扫描' : '启用扫描'),
               ),
               const Spacer(),
-              TextButton.icon(
+              IconButton(
+                tooltip: '删除扫描目录',
                 onPressed: onRemove,
                 icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('删除'),
               ),
             ],
           ),
@@ -645,15 +634,129 @@ class _ScanDirectoryCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  String _buildSummaryText() {
+class _DirectoryScanMeta extends StatelessWidget {
+  const _DirectoryScanMeta({
+    required this.projectCount,
+    required this.overrideProjectCount,
+  });
+
+  final int projectCount;
+  final int overrideProjectCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
     if (projectCount == 0) {
-      return '没有找到包含 mise 配置的项目。';
+      return Text(
+        '未发现 mise 项目',
+        style: TextStyle(
+          color: colors.textMuted,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      );
     }
-    if (overrideProjectCount > 0) {
-      return '已扫描 $projectCount 个项目，发现 $overrideProjectCount 个覆盖全局版本的项目。';
-    }
-    return '已扫描 $projectCount 个项目，当前没有发现覆盖全局版本的项目。';
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _DirectoryMetaItem(label: '项目', value: '$projectCount'),
+        _DirectoryMetaSeparator(),
+        _DirectoryMetaItem(
+          label: '覆盖',
+          value: '$overrideProjectCount',
+          color: overrideProjectCount > 0 ? colors.warning : colors.textMuted,
+        ),
+      ],
+    );
+  }
+}
+
+class _DirectoryMetaItem extends StatelessWidget {
+  const _DirectoryMetaItem({
+    required this.label,
+    required this.value,
+    this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final resolvedColor = color ?? colors.textMuted;
+
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          color: colors.textMuted,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        children: [
+          TextSpan(text: '$label '),
+          TextSpan(
+            text: value,
+            style: TextStyle(color: resolvedColor, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DirectoryMetaSeparator extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return Text(
+      '·',
+      style: TextStyle(
+        color: colors.textMuted.withValues(alpha: 0.72),
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _DirectoryStatusLabel extends StatelessWidget {
+  const _DirectoryStatusLabel({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final color = enabled ? colors.accent : colors.textMuted;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 7),
+        Text(
+          enabled ? '扫描中' : '已暂停',
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -666,26 +769,21 @@ class _ScannedProjectRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: colors.backgroundSoft.withValues(alpha: 0.74),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.border),
-      ),
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            project.name,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  project.name,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 5),
+                Text(
                   project.path,
                   style: TextStyle(
                     color: colors.textMuted,
@@ -693,26 +791,24 @@ class _ScannedProjectRow extends StatelessWidget {
                     height: 1.45,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: '复制路径',
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: project.path));
-                  if (!context.mounted) {
-                    return;
-                  }
-                  final messenger = ScaffoldMessenger.of(context);
-                  messenger.removeCurrentSnackBar();
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('项目路径已复制。')),
-                  );
-                },
-                icon: const Icon(Icons.content_copy_rounded, size: 18),
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-            ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: '复制路径',
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: project.path));
+              if (!context.mounted) {
+                return;
+              }
+              final messenger = ScaffoldMessenger.of(context);
+              messenger.removeCurrentSnackBar();
+              messenger.showSnackBar(const SnackBar(content: Text('项目路径已复制。')));
+            },
+            icon: const Icon(Icons.content_copy_rounded, size: 18),
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),
