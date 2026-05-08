@@ -193,7 +193,167 @@ class DashboardRepository {
       captionParts.add(cpuModel);
     }
 
+    final memoryInfo = await _loadMemoryInfo();
+    if (memoryInfo != null && memoryInfo.isNotEmpty) {
+      captionParts.add('内存 $memoryInfo');
+    }
+
+    final diskInfo = await _loadDiskInfo();
+    if (diskInfo != null && diskInfo.isNotEmpty) {
+      captionParts.add('磁盘 $diskInfo');
+    }
+
     return _OperatingSystemInfo(label: label, caption: captionParts.join('\n'));
+  }
+
+  Future<String?> _loadMemoryInfo() async {
+    try {
+      if (Platform.isMacOS) {
+        final result = await Process.run('sysctl', const [
+          '-n',
+          'hw.memsize',
+        ], runInShell: false);
+        final totalBytes = int.tryParse(
+          (result.stdout ?? '').toString().trim(),
+        );
+        if (result.exitCode == 0 && totalBytes != null && totalBytes > 0) {
+          return _formatBytes(totalBytes);
+        }
+      }
+
+      if (Platform.isLinux) {
+        final memInfo = await File('/proc/meminfo').readAsString();
+        for (final line in memInfo.split('\n')) {
+          if (!line.startsWith('MemTotal:')) {
+            continue;
+          }
+          final match = RegExp(r'(\d+)').firstMatch(line);
+          final totalKb = int.tryParse(match?.group(1) ?? '');
+          if (totalKb != null && totalKb > 0) {
+            return _formatBytes(totalKb * 1024);
+          }
+        }
+      }
+
+      if (Platform.isWindows) {
+        final result = await Process.run('wmic', const [
+          'OS',
+          'get',
+          'TotalVisibleMemorySize',
+          '/Value',
+        ], runInShell: false);
+        final totalKb = _parseWmicValue(
+          result.stdout,
+          'TotalVisibleMemorySize',
+        );
+        if (result.exitCode == 0 && totalKb != null && totalKb > 0) {
+          return _formatBytes(totalKb * 1024);
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
+  Future<String?> _loadDiskInfo() async {
+    try {
+      if (Platform.isMacOS || Platform.isLinux) {
+        final result = await Process.run('df', const [
+          '-k',
+          '/',
+        ], runInShell: false);
+        if (result.exitCode != 0) {
+          return null;
+        }
+        final lines = (result.stdout ?? '')
+            .toString()
+            .split('\n')
+            .where((line) => line.trim().isNotEmpty)
+            .toList(growable: false);
+        if (lines.length < 2) {
+          return null;
+        }
+        final columns = lines[1].trim().split(RegExp(r'\s+'));
+        if (columns.length < 4) {
+          return null;
+        }
+        final totalKb = int.tryParse(columns[1]);
+        final availableKb = int.tryParse(columns[3]);
+        if (totalKb == null || availableKb == null || totalKb <= 0) {
+          return null;
+        }
+        return '${_formatBytes(availableKb * 1024)} 可用 / '
+            '${_formatBytes(totalKb * 1024)} 总计';
+      }
+
+      if (Platform.isWindows) {
+        final drive = _windowsSystemDrive();
+        final result = await Process.run('wmic', [
+          'logicaldisk',
+          'where',
+          'DeviceID="$drive"',
+          'get',
+          'FreeSpace,Size',
+          '/Value',
+        ], runInShell: false);
+        if (result.exitCode != 0) {
+          return null;
+        }
+        final freeBytes = _parseWmicValue(result.stdout, 'FreeSpace');
+        final totalBytes = _parseWmicValue(result.stdout, 'Size');
+        if (freeBytes == null || totalBytes == null || totalBytes <= 0) {
+          return null;
+        }
+        return '${_formatBytes(freeBytes)} 可用 / '
+            '${_formatBytes(totalBytes)} 总计';
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
+  int? _parseWmicValue(Object? stdout, String key) {
+    final prefix = '$key=';
+    for (final line in (stdout ?? '').toString().split('\n')) {
+      final value = line.trim();
+      if (!value.startsWith(prefix)) {
+        continue;
+      }
+      return int.tryParse(value.substring(prefix.length).trim());
+    }
+    return null;
+  }
+
+  String _windowsSystemDrive() {
+    final systemDrive = Platform.environment['SystemDrive'];
+    if (systemDrive != null && systemDrive.length >= 2) {
+      return systemDrive.substring(0, 2).toUpperCase();
+    }
+
+    final path = Directory.current.absolute.path;
+    if (path.length >= 2 && path[1] == ':') {
+      return path.substring(0, 2).toUpperCase();
+    }
+    return 'C:';
+  }
+
+  String _formatBytes(int bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var size = bytes.toDouble();
+    var unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex += 1;
+    }
+
+    final value = size >= 10 || size % 1 == 0
+        ? size.toStringAsFixed(0)
+        : size.toStringAsFixed(1);
+    return '$value ${units[unitIndex]}';
   }
 
   Future<String?> _loadCpuModel() async {
