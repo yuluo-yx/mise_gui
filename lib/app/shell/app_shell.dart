@@ -10,10 +10,8 @@ import 'package:go_router/go_router.dart';
 import 'package:mise_gui/app/bootstrap/dependencies.dart';
 import 'package:mise_gui/app/router/app_destination.dart';
 import 'package:mise_gui/app/theme/app_theme.dart';
-import 'package:mise_gui/models/app_models.dart';
 import 'package:mise_gui/shared/ui/app_backdrop.dart';
 import 'package:mise_gui/shared/ui/app_panel.dart';
-import 'package:mise_gui/shared/ui/status_badge.dart';
 import 'package:mise_gui/services/mise_process_service.dart';
 
 class AppShell extends ConsumerWidget {
@@ -359,35 +357,30 @@ class _SidebarFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final style = TextStyle(
+      color: colors.textMuted.withValues(alpha: 0.82),
+      fontSize: 11,
+      fontFamily: 'FiraCode',
+      fontWeight: FontWeight.w600,
+    );
+
     if (expanded) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: StatusBadge(label: versionLabel, level: HealthLevel.info),
+        child: Text('版本 $versionLabel', style: style),
       );
     }
 
     return Center(
-      child: Container(
+      child: SizedBox(
         width: compactWidth,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppTheme.colorsOf(context).info.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: AppTheme.colorsOf(context).info.withValues(alpha: 0.35),
-          ),
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            versionLabel,
-            maxLines: 1,
-            style: TextStyle(
-              color: AppTheme.colorsOf(context).info,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+        child: Text(
+          versionLabel,
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          style: style,
         ),
       ),
     );
