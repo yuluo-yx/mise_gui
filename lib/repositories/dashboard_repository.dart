@@ -176,6 +176,10 @@ class DashboardRepository {
 
   Future<_OperatingSystemInfo> _loadOperatingSystemInfo() async {
     final systemName = _operatingSystemLabel();
+    if (Platform.isWindows) {
+      return _loadWindowsOperatingSystemInfo(systemName);
+    }
+
     final version = await _operatingSystemVersion();
     final build = await _operatingSystemBuild();
     final label = version == null || version.isEmpty
@@ -194,6 +198,54 @@ class DashboardRepository {
     }
 
     return _OperatingSystemInfo(label: label, caption: captionParts.join('\n'));
+  }
+
+  Future<_OperatingSystemInfo> _loadWindowsOperatingSystemInfo(
+    String systemName,
+  ) async {
+    final parsed = _parseWindowsOperatingSystemVersion(
+      Platform.operatingSystemVersion,
+    );
+    final captionParts = <String>[];
+
+    if (parsed.build != null && parsed.build!.isNotEmpty) {
+      captionParts.add('Build ${parsed.build}');
+    }
+    captionParts.add(_operatingSystemCaption());
+
+    final cpuModel = await _loadCpuModel();
+    if (cpuModel != null && cpuModel.isNotEmpty) {
+      captionParts.add(cpuModel);
+    }
+
+    final label = switch ((parsed.productName, parsed.kernelVersion)) {
+      (final String productName?, _) when productName.isNotEmpty => productName,
+      (_, final String kernelVersion?) when kernelVersion.isNotEmpty =>
+        '$systemName $kernelVersion',
+      _ => systemName,
+    };
+
+    return _OperatingSystemInfo(label: label, caption: captionParts.join('\n'));
+  }
+
+  _WindowsOperatingSystemVersion _parseWindowsOperatingSystemVersion(
+    String raw,
+  ) {
+    final normalized = raw.trim();
+    final productName =
+        RegExp(r'"([^"]+)"').firstMatch(normalized)?.group(1)?.trim();
+    final kernelVersion =
+        RegExp(r'\b\d+\.\d+(?:\.\d+)?\b').firstMatch(normalized)?.group(0);
+    final build =
+        RegExp(r'build\s+(\d+)', caseSensitive: false)
+            .firstMatch(normalized)
+            ?.group(1);
+
+    return _WindowsOperatingSystemVersion(
+      productName: productName,
+      kernelVersion: kernelVersion,
+      build: build,
+    );
   }
 
   Future<String?> _loadCpuModel() async {
@@ -298,4 +350,16 @@ class _OperatingSystemInfo {
 
   final String label;
   final String caption;
+}
+
+class _WindowsOperatingSystemVersion {
+  const _WindowsOperatingSystemVersion({
+    this.productName,
+    this.kernelVersion,
+    this.build,
+  });
+
+  final String? productName;
+  final String? kernelVersion;
+  final String? build;
 }
