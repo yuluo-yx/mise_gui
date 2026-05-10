@@ -210,23 +210,125 @@ class _DashboardMetricGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 20.0;
-        final twoColumns = constraints.maxWidth >= 980;
-        final cardWidth = twoColumns
-            ? (constraints.maxWidth - spacing) / 2
-            : constraints.maxWidth;
+        final systemMetric = _metricByLabel('当前系统');
+        final compactMetrics = metrics
+            .where((metric) => metric.label != '当前系统')
+            .toList(growable: false);
 
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final metric in metrics)
+        if (systemMetric == null) {
+          return _MetricWrap(
+            metrics: metrics,
+            spacing: spacing,
+            maxWidth: constraints.maxWidth,
+          );
+        }
+
+        if (constraints.maxWidth >= 1180 && compactMetrics.length >= 3) {
+          final systemWidth = (constraints.maxWidth - spacing) * 0.55;
+          final compactWidth = constraints.maxWidth - spacing - systemWidth;
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               SizedBox(
-                width: cardWidth,
-                child: _DashboardMetricCard(metric: metric),
+                width: systemWidth,
+                child: _DashboardMetricCard(metric: systemMetric),
               ),
+              const SizedBox(width: spacing),
+              SizedBox(
+                width: compactWidth,
+                child: Column(
+                  children: [
+                    for (var index = 0; index < compactMetrics.length; index++)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index == compactMetrics.length - 1
+                              ? 0
+                              : spacing,
+                        ),
+                        child: _DashboardMetricCard(
+                          metric: compactMetrics[index],
+                          compact: true,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
+        final compactColumns = constraints.maxWidth >= 980
+            ? 3
+            : constraints.maxWidth >= 700
+            ? 2
+            : 1;
+        final compactWidth =
+            (constraints.maxWidth - spacing * (compactColumns - 1)) /
+            compactColumns;
+
+        return Column(
+          children: [
+            _DashboardMetricCard(metric: systemMetric),
+            if (compactMetrics.isNotEmpty) ...[
+              const SizedBox(height: spacing),
+              Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  for (final metric in compactMetrics)
+                    SizedBox(
+                      width: compactWidth,
+                      child: _DashboardMetricCard(
+                        metric: metric,
+                        compact: true,
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
         );
       },
+    );
+  }
+
+  SummaryMetric? _metricByLabel(String label) {
+    for (final metric in metrics) {
+      if (metric.label == label) {
+        return metric;
+      }
+    }
+    return null;
+  }
+}
+
+class _MetricWrap extends StatelessWidget {
+  const _MetricWrap({
+    required this.metrics,
+    required this.spacing,
+    required this.maxWidth,
+  });
+
+  final List<SummaryMetric> metrics;
+  final double spacing;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final twoColumns = maxWidth >= 980;
+    final cardWidth = twoColumns ? (maxWidth - spacing) / 2 : maxWidth;
+
+    return Wrap(
+      spacing: spacing,
+      runSpacing: spacing,
+      children: [
+        for (final metric in metrics)
+          SizedBox(
+            width: cardWidth,
+            child: _DashboardMetricCard(metric: metric),
+          ),
+      ],
     );
   }
 }
@@ -299,9 +401,10 @@ class _RecentHistoryPanel extends StatelessWidget {
 }
 
 class _DashboardMetricCard extends StatelessWidget {
-  const _DashboardMetricCard({required this.metric});
+  const _DashboardMetricCard({required this.metric, this.compact = false});
 
   final SummaryMetric metric;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -315,64 +418,28 @@ class _DashboardMetricCard extends StatelessWidget {
     };
 
     const cardRadius = 20.0;
+    final child = metric.label == '当前系统'
+        ? _SystemMetricContent(metric: metric, accent: accent)
+        : compact
+        ? _CompactMetricContent(
+            metric: metric,
+            accent: accent,
+            hasDestination: destination != null,
+          )
+        : _DefaultMetricContent(
+            metric: metric,
+            accent: accent,
+            hasDestination: destination != null,
+          );
     final panel = AppPanel(
       key: _keyFor(metric.label),
-      padding: const EdgeInsets.all(22),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(18, 18, 18, 16)
+          : const EdgeInsets.all(22),
       radius: cardRadius,
       backgroundAlpha: 0.74,
       borderAlpha: 0.5,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 178),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Icon(_iconFor(metric.label), color: accent, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    metric.label,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                if (destination != null)
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    color: colors.textMuted,
-                    size: 20,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 26),
-            Text(
-              metric.value,
-              style: Theme.of(
-                context,
-              ).textTheme.displaySmall?.copyWith(color: accent, height: 1),
-            ),
-            if (metric.caption.trim().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                metric.caption,
-                style: TextStyle(
-                  color: colors.textMuted,
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+      child: child,
     );
 
     if (destination == null) {
@@ -418,19 +485,459 @@ class _DashboardMetricCard extends StatelessWidget {
         return null;
     }
   }
+}
 
-  IconData _iconFor(String label) {
-    switch (label) {
-      case '当前系统':
-        return Icons.desktop_windows_rounded;
-      case '已装工具':
-        return Icons.extension_rounded;
-      case '项目覆盖':
-        return Icons.account_tree_rounded;
-      case 'Mise 版本':
-        return Icons.verified_rounded;
-      default:
-        return Icons.data_usage_rounded;
+class _CompactMetricContent extends StatelessWidget {
+  const _CompactMetricContent({
+    required this.metric,
+    required this.accent,
+    required this.hasDestination,
+  });
+
+  final SummaryMetric metric;
+  final Color accent;
+  final bool hasDestination;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 128),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  _iconForMetric(metric.label),
+                  color: accent,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  metric.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              if (hasDestination)
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  color: colors.textMuted,
+                  size: 20,
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            metric.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              color: accent,
+              height: 1,
+              fontSize: 34,
+            ),
+          ),
+          if (metric.caption.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              metric.caption,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 13,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DefaultMetricContent extends StatelessWidget {
+  const _DefaultMetricContent({
+    required this.metric,
+    required this.accent,
+    required this.hasDestination,
+  });
+
+  final SummaryMetric metric;
+  final Color accent;
+  final bool hasDestination;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 178),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MetricHeader(
+            label: metric.label,
+            icon: _iconForMetric(metric.label),
+            accent: accent,
+            trailing: hasDestination
+                ? Icon(
+                    Icons.arrow_forward_rounded,
+                    color: colors.textMuted,
+                    size: 20,
+                  )
+                : null,
+          ),
+          const SizedBox(height: 26),
+          Text(
+            metric.value,
+            style: Theme.of(
+              context,
+            ).textTheme.displaySmall?.copyWith(color: accent, height: 1),
+          ),
+          if (metric.caption.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              metric.caption,
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SystemMetricContent extends StatelessWidget {
+  const _SystemMetricContent({required this.metric, required this.accent});
+
+  final SummaryMetric metric;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = _SystemMetricDetails.fromCaption(metric.caption);
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 178),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MetricHeader(
+            label: metric.label,
+            icon: _iconForMetric(metric.label),
+            accent: accent,
+          ),
+          const SizedBox(height: 20),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              metric.value,
+              maxLines: 1,
+              style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                color: accent,
+                height: 1,
+                fontSize: 34,
+              ),
+            ),
+          ),
+          if (details.chips.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final chip in details.chips)
+                  _SystemInfoChip(label: chip.label, value: chip.value),
+              ],
+            ),
+          ],
+          if (details.items.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _SystemInfoGrid(items: details.items),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricHeader extends StatelessWidget {
+  const _MetricHeader({
+    required this.label,
+    required this.icon,
+    required this.accent,
+    this.trailing,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Icon(icon, color: accent, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(label, style: Theme.of(context).textTheme.titleLarge),
+        ),
+        if (trailing != null) trailing!,
+      ],
+    );
+  }
+}
+
+class _SystemInfoGrid extends StatelessWidget {
+  const _SystemInfoGrid({required this.items});
+
+  final List<_SystemInfoItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 10.0;
+        final twoColumns = constraints.maxWidth >= 520;
+        final tileWidth = twoColumns
+            ? (constraints.maxWidth - spacing) / 2
+            : constraints.maxWidth;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final item in items)
+              SizedBox(
+                width: item.fullWidth ? constraints.maxWidth : tileWidth,
+                child: _SystemInfoTile(item: item),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SystemInfoTile extends StatelessWidget {
+  const _SystemInfoTile({required this.item});
+
+  final _SystemInfoItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.panelMuted.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.border.withValues(alpha: 0.44)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(item.icon, color: colors.textMuted, size: 17),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.label,
+                  style: TextStyle(
+                    color: colors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.value,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SystemInfoChip extends StatelessWidget {
+  const _SystemInfoChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.info.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.info.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: colors.textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            value,
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SystemMetricDetails {
+  const _SystemMetricDetails({required this.chips, required this.items});
+
+  final List<_SystemInfoChipData> chips;
+  final List<_SystemInfoItem> items;
+
+  factory _SystemMetricDetails.fromCaption(String caption) {
+    final chips = <_SystemInfoChipData>[];
+    final items = <_SystemInfoItem>[];
+
+    for (final line
+        in caption
+            .split('\n')
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)) {
+      if (line.startsWith('Build ')) {
+        chips.add(
+          _SystemInfoChipData(label: 'Build', value: line.substring(6)),
+        );
+      } else if (line.endsWith(' 架构')) {
+        chips.add(
+          _SystemInfoChipData(
+            label: '架构',
+            value: line.substring(0, line.length - 3),
+          ),
+        );
+      } else if (line.startsWith('内存 ')) {
+        items.add(
+          _SystemInfoItem(
+            label: '内存',
+            value: line.substring(3),
+            icon: Icons.memory_rounded,
+          ),
+        );
+      } else if (line.startsWith('磁盘 ')) {
+        items.add(
+          _SystemInfoItem(
+            label: '磁盘',
+            value: line.substring(3),
+            icon: Icons.storage_rounded,
+          ),
+        );
+      } else {
+        items.add(
+          _SystemInfoItem(
+            label: '处理器',
+            value: line,
+            icon: Icons.developer_board_rounded,
+            fullWidth: true,
+          ),
+        );
+      }
     }
+
+    return _SystemMetricDetails(chips: chips, items: items);
+  }
+}
+
+class _SystemInfoChipData {
+  const _SystemInfoChipData({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+class _SystemInfoItem {
+  const _SystemInfoItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.fullWidth = false,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final bool fullWidth;
+}
+
+IconData _iconForMetric(String label) {
+  switch (label) {
+    case '当前系统':
+      return Icons.desktop_windows_rounded;
+    case '已装工具':
+      return Icons.extension_rounded;
+    case '项目覆盖':
+      return Icons.account_tree_rounded;
+    case 'Mise 版本':
+      return Icons.verified_rounded;
+    default:
+      return Icons.data_usage_rounded;
   }
 }

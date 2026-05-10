@@ -95,8 +95,9 @@ const _dashboardSnapshot = DashboardSnapshot(
   metrics: [
     SummaryMetric(
       label: '当前系统',
-      value: 'macOS',
-      caption: '测试系统',
+      value: 'macOS 26.4.1',
+      caption:
+          'Build 25E253\narm64 架构\nApple M5 Pro\n内存 48 GB\n磁盘 557 GB 可用 / 926 GB 总计',
       level: HealthLevel.info,
     ),
     SummaryMetric(
@@ -165,6 +166,24 @@ void main() {
     expect(find.text('总览'), findsWidgets);
     expect(find.text('工具'), findsWidgets);
     expect(find.text('项目'), findsWidgets);
+  });
+
+  testWidgets('dashboard system metric groups device details', (
+    WidgetTester tester,
+  ) async {
+    await pumpMiseGuiApp(tester);
+
+    expect(find.text('macOS 26.4.1'), findsOneWidget);
+    expect(find.text('Build'), findsOneWidget);
+    expect(find.text('25E253'), findsOneWidget);
+    expect(find.text('架构'), findsOneWidget);
+    expect(find.text('arm64'), findsOneWidget);
+    expect(find.text('处理器'), findsOneWidget);
+    expect(find.text('Apple M5 Pro'), findsOneWidget);
+    expect(find.text('内存'), findsOneWidget);
+    expect(find.text('48 GB'), findsOneWidget);
+    expect(find.text('磁盘'), findsOneWidget);
+    expect(find.text('557 GB 可用 / 926 GB 总计'), findsOneWidget);
   });
 
   testWidgets('dashboard installed tools metric opens tools tab', (
