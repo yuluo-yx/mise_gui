@@ -17,7 +17,7 @@
 
 A visual mise management app for developers, designed to quickly manage local toolchain versions and project-level tool dependencies through a graphical interface.
 
-![demo-img-1.png](docs/demo-img-1.png)
+![demo-img-1.png](docs/1.png)
 
 ## Overview
 
@@ -31,25 +31,25 @@ This project is built for developers who frequently switch between multiple lang
 
 View current and latest versions by tool. Open details to load remote versions, switch versions, upgrade, or uninstall.
 
-![demo-img-2.png](docs/demo-img-2.png)
+![demo-img-2.png](docs/2.png)
 
 ### Install a New Tool
 
 The install flow loads remote candidate versions first, then moves into command preview before execution, so operations are never run invisibly.
 
-![demo-img-3.png](docs/demo-img-3.png)
+![demo-img-3.png](docs/3.png)
 
 ### Project Coverage
 
 Add multiple scan directories. The app recursively checks project configuration and highlights projects that override global defaults.
 
-![demo-img-4.png](docs/demo-img-4.png)
+![demo-img-4.png](docs/4.png)
 
 ### Configuration Management
 
 The configuration page keeps global and project configuration in the same context. TOML edits can be reviewed with a diff preview before saving, reducing the risk of accidental changes.
 
-![demo-img-5.png](docs/demo-img-5.png)
+![demo-img-5.png](docs/5.png)
 
 ## Getting Started
 

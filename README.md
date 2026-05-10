@@ -18,7 +18,7 @@
 
 一个面向开发者的 mise 可视化管理软件，通过图形化界面快速管理本地工具链版本以及项目内所依赖工具版本。
 
-![demo-img-1.png](docs/demo-img-1.png)
+![demo-img-1.png](docs/1.png)
 
 ## 项目简介
 
@@ -36,25 +36,25 @@ Mise GUI 是一个基于 Flutter 的跨平台桌面应用，为 [mise](https://m
 
 按工具查看当前版本和最新版本，进入详情后可以加载远端版本、切换版本、升级或卸载。
 
-![demo-img-2.png](docs/demo-img-2.png)
+![demo-img-2.png](docs/2.png)
 
 ### 安装新工具
 
 安装流程会先读取远端可选版本，确认后进入命令预览，不会直接执行不可见操作。
 
-![demo-img-3.png](docs/demo-img-3.png)
+![demo-img-3.png](docs/3.png)
 
 ### 项目覆盖
 
 你可以添加多个扫描目录，应用会递归检查项目配置，并把覆盖全局默认版本的项目单独展示出来。
 
-![demo-img-4.png](docs/demo-img-4.png)
+![demo-img-4.png](docs/4.png)
 
 ### 配置管理
 
 配置页把全局配置和项目配置放在同一个上下文里，编辑 TOML 前后可以查看差异，减少误改风险。
 
-![demo-img-5.png](docs/demo-img-5.png)
+![demo-img-5.png](docs/5.png)
 
 ## 开始使用
 
