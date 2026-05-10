@@ -3,8 +3,7 @@ import 'dart:io';
 
 const String _shellEnvironmentStartMarker =
     '__MISE_GUI_SHELL_ENVIRONMENT_START__';
-const String _shellEnvironmentEndMarker =
-    '__MISE_GUI_SHELL_ENVIRONMENT_END__';
+const String _shellEnvironmentEndMarker = '__MISE_GUI_SHELL_ENVIRONMENT_END__';
 final RegExp _environmentKeyPattern = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
 
 class MiseCommandRequest {
@@ -521,7 +520,9 @@ class LocalMiseProcessService implements MiseProcessService {
 
   String _windowsShimPathFixCommand(String shimPath) {
     final escapedShimPath = shimPath.replaceAll("'", "''");
-    return r'''$shimDir = ''' "'$escapedShimPath'" r'''
+    return r'''$shimDir = '''
+        "'$escapedShimPath'"
+        r'''
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $entries = @()
 if ($userPath) {

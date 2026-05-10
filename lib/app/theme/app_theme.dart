@@ -249,22 +249,18 @@ class AppTheme {
             final alpha = states.contains(WidgetState.disabled)
                 ? 0.18
                 : states.contains(WidgetState.selected)
-                    ? 0.4
-                    : isDark
-                        ? 0.45
-                        : 0.34;
-            return BorderSide(
-              color: palette.accent.withValues(alpha: alpha),
-            );
+                ? 0.4
+                : isDark
+                ? 0.45
+                : 0.34;
+            return BorderSide(color: palette.accent.withValues(alpha: alpha));
           }),
           elevation: const WidgetStatePropertyAll(0),
           shadowColor: WidgetStatePropertyAll(
             palette.backgroundDeep.withValues(alpha: isDark ? 0.18 : 0.08),
           ),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           ),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -288,7 +284,9 @@ class AppTheme {
               return palette.panelMuted.withValues(alpha: isDark ? 0.92 : 0.9);
             }
             if (states.contains(WidgetState.hovered)) {
-              return palette.panelRaised.withValues(alpha: isDark ? 0.98 : 0.94);
+              return palette.panelRaised.withValues(
+                alpha: isDark ? 0.98 : 0.94,
+              );
             }
             return palette.panelRaised.withValues(alpha: isDark ? 0.94 : 0.88);
           }),
@@ -309,9 +307,7 @@ class AppTheme {
           }),
           side: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.disabled)) {
-              return BorderSide(
-                color: palette.border.withValues(alpha: 0.4),
-              );
+              return BorderSide(color: palette.border.withValues(alpha: 0.4));
             }
             return BorderSide(
               color: palette.borderStrong.withValues(alpha: isDark ? 0.7 : 0.5),
@@ -322,9 +318,7 @@ class AppTheme {
             palette.backgroundDeep.withValues(alpha: isDark ? 0.16 : 0.06),
           ),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           ),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -351,9 +345,7 @@ class AppTheme {
             return null;
           }),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -389,16 +381,16 @@ class AppTheme {
           }),
           side: WidgetStatePropertyAll(
             BorderSide(
-              color: palette.borderStrong.withValues(alpha: isDark ? 0.55 : 0.38),
+              color: palette.borderStrong.withValues(
+                alpha: isDark ? 0.55 : 0.38,
+              ),
             ),
           ),
           shadowColor: WidgetStatePropertyAll(
             palette.backgroundDeep.withValues(alpha: isDark ? 0.18 : 0.08),
           ),
           shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           ),
           padding: const WidgetStatePropertyAll(
             EdgeInsets.symmetric(horizontal: 16, vertical: 12),

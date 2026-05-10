@@ -47,21 +47,21 @@ class LocalConfigWatchService implements ConfigWatchService {
 
         final subscription = parent
             .watch(
-              events: FileSystemEvent.create |
+              events:
+                  FileSystemEvent.create |
                   FileSystemEvent.modify |
                   FileSystemEvent.delete |
                   FileSystemEvent.move,
             )
             .handleError((_) {})
-            .listen(
-          (event) {
-            final eventFileName = event.path.split(Platform.pathSeparator).last;
-            if (eventFileName == fileName) {
-              emit();
-            }
-          },
-          onError: (_) {},
-        );
+            .listen((event) {
+              final eventFileName = event.path
+                  .split(Platform.pathSeparator)
+                  .last;
+              if (eventFileName == fileName) {
+                emit();
+              }
+            }, onError: (_) {});
 
         subscriptions.add(subscription);
       }

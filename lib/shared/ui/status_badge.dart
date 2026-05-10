@@ -3,11 +3,7 @@ import 'package:mise_gui/app/theme/app_theme.dart';
 import 'package:mise_gui/models/app_models.dart';
 
 class StatusBadge extends StatelessWidget {
-  const StatusBadge({
-    super.key,
-    required this.label,
-    required this.level,
-  });
+  const StatusBadge({super.key, required this.label, required this.level});
 
   final String label;
   final HealthLevel level;

@@ -19,10 +19,7 @@ class MetricTile extends StatelessWidget {
         children: [
           StatusBadge(label: metric.label, level: metric.level),
           const SizedBox(height: 18),
-          Text(
-            metric.value,
-            style: Theme.of(context).textTheme.displaySmall,
-          ),
+          Text(metric.value, style: Theme.of(context).textTheme.displaySmall),
           const SizedBox(height: 10),
           Text(
             metric.caption,

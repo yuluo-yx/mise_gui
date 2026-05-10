@@ -232,14 +232,16 @@ class DashboardRepository {
     String raw,
   ) {
     final normalized = raw.trim();
-    final productName =
-        RegExp(r'"([^"]+)"').firstMatch(normalized)?.group(1)?.trim();
-    final kernelVersion =
-        RegExp(r'\b\d+\.\d+(?:\.\d+)?\b').firstMatch(normalized)?.group(0);
-    final build =
-        RegExp(r'build\s+(\d+)', caseSensitive: false)
-            .firstMatch(normalized)
-            ?.group(1);
+    final productName = RegExp(
+      r'"([^"]+)"',
+    ).firstMatch(normalized)?.group(1)?.trim();
+    final kernelVersion = RegExp(
+      r'\b\d+\.\d+(?:\.\d+)?\b',
+    ).firstMatch(normalized)?.group(0);
+    final build = RegExp(
+      r'build\s+(\d+)',
+      caseSensitive: false,
+    ).firstMatch(normalized)?.group(1);
 
     return _WindowsOperatingSystemVersion(
       productName: productName,

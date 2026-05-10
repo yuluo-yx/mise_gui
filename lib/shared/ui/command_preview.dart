@@ -3,11 +3,7 @@ import 'package:mise_gui/app/theme/app_theme.dart';
 import 'package:mise_gui/shared/ui/app_panel.dart';
 
 class CommandPreview extends StatelessWidget {
-  const CommandPreview({
-    super.key,
-    required this.title,
-    required this.command,
-  });
+  const CommandPreview({super.key, required this.title, required this.command});
 
   final String title;
   final String command;
@@ -20,10 +16,7 @@ class CommandPreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 14),
           Container(
             width: double.infinity,

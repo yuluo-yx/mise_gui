@@ -5,8 +5,7 @@ import 'package:mise_gui/services/mise_process_service.dart';
 
 const String _shellCommandStartMarker =
     '__MISE_GUI_SHELL_COMMAND_OUTPUT_START__';
-const String _shellCommandEndMarker =
-    '__MISE_GUI_SHELL_COMMAND_OUTPUT_END__';
+const String _shellCommandEndMarker = '__MISE_GUI_SHELL_COMMAND_OUTPUT_END__';
 
 class MiseSourceRef {
   const MiseSourceRef({required this.type, this.path});

@@ -441,7 +441,9 @@ class LiveMiseCliService implements MiseCliService {
     }
   }
 
-  Future<MiseResolvedExecutableRef?> _safeFetchMiseExecutable(String tool) async {
+  Future<MiseResolvedExecutableRef?> _safeFetchMiseExecutable(
+    String tool,
+  ) async {
     try {
       return await _queryService.fetchExecutable(tool);
     } catch (_) {
@@ -449,7 +451,9 @@ class LiveMiseCliService implements MiseCliService {
     }
   }
 
-  Future<MiseResolvedExecutableRef?> _safeFetchShellExecutable(String tool) async {
+  Future<MiseResolvedExecutableRef?> _safeFetchShellExecutable(
+    String tool,
+  ) async {
     try {
       return await _queryService.fetchShellExecutable(tool);
     } catch (_) {
@@ -530,7 +534,7 @@ class LiveMiseCliService implements MiseCliService {
     required String tool,
     required String activeVersion,
     required String requestedVersion,
-  required List<MiseRemoteToolVersionRef> versions,
+    required List<MiseRemoteToolVersionRef> versions,
   }) {
     final normalizedRequested = requestedVersion.trim();
     final requestedMajor = _leadingMajor(normalizedRequested);
@@ -564,9 +568,7 @@ class LiveMiseCliService implements MiseCliService {
     }
 
     final list = candidates.toList()
-      ..sort(
-        (left, right) => compareToolVersions(left.version, right.version),
-      );
+      ..sort((left, right) => compareToolVersions(left.version, right.version));
     if (list.isEmpty) {
       return const [];
     }
@@ -837,14 +839,16 @@ sealed class _VersionToken {
 
   static List<_VersionToken> parse(String input) {
     final matches = RegExp(r'\d+|[A-Za-z]+').allMatches(input);
-    return matches.map((match) {
-      final value = match.group(0)!;
-      final numeric = int.tryParse(value);
-      if (numeric != null) {
-        return _VersionToken.numeric(numeric);
-      }
-      return _VersionToken.text(value.toLowerCase());
-    }).toList(growable: false);
+    return matches
+        .map((match) {
+          final value = match.group(0)!;
+          final numeric = int.tryParse(value);
+          if (numeric != null) {
+            return _VersionToken.numeric(numeric);
+          }
+          return _VersionToken.text(value.toLowerCase());
+        })
+        .toList(growable: false);
   }
 
   int compareTo(_VersionToken other);

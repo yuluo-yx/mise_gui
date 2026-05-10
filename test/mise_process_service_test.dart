@@ -47,14 +47,12 @@ void main() {
       subject: 'node',
       command: 'command -v node',
       exitCode: 0,
-      stdout: 'Last login: Thu May  7 09:00:00 on ttys000\n'
+      stdout:
+          'Last login: Thu May  7 09:00:00 on ttys000\n'
           '/Users/demo/.local/share/mise/shims/node\n',
       stderr: '',
     );
 
-    expect(
-      resolved.resolvedPath,
-      '/Users/demo/.local/share/mise/shims/node',
-    );
+    expect(resolved.resolvedPath, '/Users/demo/.local/share/mise/shims/node');
   });
 }

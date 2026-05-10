@@ -3,11 +3,7 @@ import 'package:mise_gui/app/theme/app_theme.dart';
 import 'package:mise_gui/models/app_models.dart';
 
 class InlineNoticeBar extends StatelessWidget {
-  const InlineNoticeBar({
-    super.key,
-    required this.notice,
-    this.onShowCommand,
-  });
+  const InlineNoticeBar({super.key, required this.notice, this.onShowCommand});
 
   final InlineNotice notice;
   final VoidCallback? onShowCommand;
@@ -47,11 +43,7 @@ class InlineNoticeBar extends StatelessWidget {
               color: accent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              Icons.info_outline_rounded,
-              color: accent,
-              size: 18,
-            ),
+            child: Icon(Icons.info_outline_rounded, color: accent, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -68,10 +60,7 @@ class InlineNoticeBar extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   notice.message,
-                  style: TextStyle(
-                    color: colors.textMuted,
-                    height: 1.45,
-                  ),
+                  style: TextStyle(color: colors.textMuted, height: 1.45),
                 ),
               ],
             ),

@@ -5,7 +5,6 @@ import 'package:mise_gui/models/app_models.dart';
 
 const _githubOwner = 'likaia';
 const _githubRepo = 'mise_gui';
-const _githubTagsPageUrl = 'https://github.com/likaia/mise_gui/tags';
 const _githubReleasesPageUrl = 'https://github.com/likaia/mise_gui/releases';
 const _githubApiBase =
     'https://api.github.com/repos/$_githubOwner/$_githubRepo';

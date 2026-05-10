@@ -83,8 +83,8 @@ class _AppUpdateGateState extends ConsumerState<_AppUpdateGate> {
       return;
     }
 
-    final dialogContext = ref.read(rootNavigatorKeyProvider).currentContext;
-    if (dialogContext == null) {
+    final navigatorKey = ref.read(rootNavigatorKeyProvider);
+    if (navigatorKey.currentContext == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           unawaited(_checkForUpdate());
@@ -101,6 +101,11 @@ class _AppUpdateGateState extends ConsumerState<_AppUpdateGate> {
           .read(appUpdateServiceProvider)
           .checkForUpdate(currentVersion: versionInfo.version);
       if (!mounted || updateInfo == null) {
+        return;
+      }
+
+      final dialogContext = navigatorKey.currentContext;
+      if (dialogContext == null || !dialogContext.mounted) {
         return;
       }
 
@@ -353,7 +358,6 @@ class _VersionTransitionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = AppTheme.colorsOf(context);
 
     return Container(
