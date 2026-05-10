@@ -149,7 +149,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('这台电脑还没有安装 mise'), findsOneWidget);
-    expect(find.text('brew install mise'), findsOneWidget);
+    expect(find.text(recommendedMiseInstallCommand()), findsOneWidget);
   });
 
   testWidgets('shows update dialog when a newer release is available', (
