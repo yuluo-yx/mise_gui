@@ -398,10 +398,10 @@ class _ScanDirectoriesPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('扫描目录', style: Theme.of(context).textTheme.titleLarge),
+                    Text('扫描范围', style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 8),
                     Text(
-                      '决定扫描哪些工作区。右侧只显示覆盖了全局版本的项目。',
+                      '添加工作区目录后，应用会在其中查找 mise 项目和项目级版本覆盖。',
                       style: TextStyle(color: colors.textMuted, height: 1.45),
                     ),
                   ],
@@ -410,7 +410,7 @@ class _ScanDirectoriesPanel extends StatelessWidget {
               const SizedBox(width: 12),
               if (directories.isNotEmpty)
                 Text(
-                  '${directories.length} 个',
+                  '${directories.length} 个目录',
                   style: TextStyle(
                     color: colors.textMuted,
                     fontSize: 12,
@@ -528,6 +528,11 @@ class _ScanDirectoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
+    final summary = _DirectoryScanSummary(
+      enabled: directory.enabled,
+      projectCount: projectCount,
+      overrideProjectCount: overrideProjectCount,
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -570,46 +575,18 @@ class _ScanDirectoryCard extends StatelessWidget {
               _DirectoryStatusLabel(enabled: directory.enabled),
             ],
           ),
-          const SizedBox(height: 10),
-          _DirectoryScanMeta(
-            projectCount: projectCount,
-            overrideProjectCount: overrideProjectCount,
-          ),
+          const SizedBox(height: 12),
+          _DirectorySummaryBanner(summary: summary),
           if (projectCount > 0) ...[
-            const SizedBox(height: 8),
-            Theme(
-              data: Theme.of(
-                context,
-              ).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                key: PageStorageKey<String>('scan-directory-${directory.path}'),
-                tilePadding: EdgeInsets.zero,
-                childrenPadding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-                title: Text(
-                  '项目 $projectCount',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: overrideProjectCount > 0
-                    ? Text(
-                        '$overrideProjectCount 个覆盖全局版本',
-                        style: TextStyle(color: colors.warning, fontSize: 12),
-                      )
-                    : null,
-                children: [
-                  Divider(
-                    height: 1,
-                    color: colors.border.withValues(alpha: 0.36),
-                  ),
-                  ...List.generate(projects.length, (index) {
-                    final project = projects[index];
-                    return _ScannedProjectRow(project: project);
-                  }),
-                ],
-              ),
+            const SizedBox(height: 10),
+            _DirectoryProjectDetails(
+              directoryPath: directory.path,
+              projects: projects,
+              projectCount: projectCount,
+              overrideProjectCount: overrideProjectCount,
             ),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               TextButton.icon(
@@ -636,12 +613,16 @@ class _ScanDirectoryCard extends StatelessWidget {
   }
 }
 
-class _DirectoryScanMeta extends StatelessWidget {
-  const _DirectoryScanMeta({
+class _DirectoryProjectDetails extends StatelessWidget {
+  const _DirectoryProjectDetails({
+    required this.directoryPath,
+    required this.projects,
     required this.projectCount,
     required this.overrideProjectCount,
   });
 
+  final String directoryPath;
+  final List<ProjectRecord> projects;
   final int projectCount;
   final int overrideProjectCount;
 
@@ -649,62 +630,88 @@ class _DirectoryScanMeta extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
 
-    if (projectCount == 0) {
-      return Text(
-        '未发现 mise 项目',
-        style: TextStyle(
-          color: colors.textMuted,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        key: PageStorageKey<String>('scan-directory-$directoryPath'),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 10),
+        childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 2),
+        collapsedShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colors.border.withValues(alpha: 0.32)),
         ),
-      );
-    }
-
-    return Wrap(
-      spacing: 10,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        _DirectoryMetaItem(label: '项目', value: '$projectCount'),
-        _DirectoryMetaSeparator(),
-        _DirectoryMetaItem(
-          label: '覆盖',
-          value: '$overrideProjectCount',
-          color: overrideProjectCount > 0 ? colors.warning : colors.textMuted,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colors.border.withValues(alpha: 0.36)),
         ),
-      ],
+        backgroundColor: colors.panelRaised.withValues(alpha: 0.2),
+        collapsedBackgroundColor: colors.panelRaised.withValues(alpha: 0.14),
+        visualDensity: VisualDensity.compact,
+        title: const Text(
+          '查看项目明细',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          overrideProjectCount > 0
+              ? '$projectCount 个 mise 项目，$overrideProjectCount 个存在覆盖'
+              : '$projectCount 个 mise 项目，暂无版本覆盖',
+          style: TextStyle(
+            color: overrideProjectCount > 0 ? colors.warning : colors.textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        children: [
+          Divider(height: 1, color: colors.border.withValues(alpha: 0.36)),
+          ...List.generate(projects.length, (index) {
+            final project = projects[index];
+            return _ScannedProjectRow(project: project);
+          }),
+        ],
+      ),
     );
   }
 }
 
-class _DirectoryMetaItem extends StatelessWidget {
-  const _DirectoryMetaItem({
-    required this.label,
-    required this.value,
-    this.color,
-  });
+class _DirectorySummaryBanner extends StatelessWidget {
+  const _DirectorySummaryBanner({required this.summary});
 
-  final String label;
-  final String value;
-  final Color? color;
+  final _DirectoryScanSummary summary;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.colorsOf(context);
-    final resolvedColor = color ?? colors.textMuted;
+    final color = summary.level == HealthLevel.warning
+        ? colors.warning
+        : summary.level == HealthLevel.healthy
+        ? colors.accent
+        : colors.textMuted;
 
-    return RichText(
-      text: TextSpan(
-        style: TextStyle(
-          color: colors.textMuted,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextSpan(text: '$label '),
-          TextSpan(
-            text: value,
-            style: TextStyle(color: resolvedColor, fontWeight: FontWeight.w800),
+          Icon(summary.icon, color: color, size: 18),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              summary.message,
+              style: TextStyle(
+                color: summary.level == HealthLevel.info
+                    ? colors.textMuted
+                    : colors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
           ),
         ],
       ),
@@ -712,20 +719,50 @@ class _DirectoryMetaItem extends StatelessWidget {
   }
 }
 
-class _DirectoryMetaSeparator extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppTheme.colorsOf(context);
+class _DirectoryScanSummary {
+  factory _DirectoryScanSummary({
+    required bool enabled,
+    required int projectCount,
+    required int overrideProjectCount,
+  }) {
+    if (!enabled) {
+      return const _DirectoryScanSummary._paused();
+    }
 
-    return Text(
-      '·',
-      style: TextStyle(
-        color: colors.textMuted.withValues(alpha: 0.72),
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-      ),
-    );
+    if (projectCount == 0) {
+      return const _DirectoryScanSummary._empty();
+    }
+
+    if (overrideProjectCount > 0) {
+      return _DirectoryScanSummary._warning(
+        '发现 $projectCount 个 mise 项目，其中 $overrideProjectCount 个存在版本覆盖。',
+      );
+    }
+
+    return _DirectoryScanSummary._healthy('发现 $projectCount 个 mise 项目，暂无版本覆盖。');
   }
+
+  const _DirectoryScanSummary._paused()
+    : message = '已暂停扫描，保留上次扫描结果。',
+      icon = Icons.pause_circle_outline_rounded,
+      level = HealthLevel.info;
+
+  const _DirectoryScanSummary._empty()
+    : message = '未发现 mise 项目。',
+      icon = Icons.search_off_rounded,
+      level = HealthLevel.info;
+
+  const _DirectoryScanSummary._healthy(this.message)
+    : icon = Icons.check_circle_outline_rounded,
+      level = HealthLevel.healthy;
+
+  const _DirectoryScanSummary._warning(this.message)
+    : icon = Icons.warning_amber_rounded,
+      level = HealthLevel.warning;
+
+  final String message;
+  final IconData icon;
+  final HealthLevel level;
 }
 
 class _DirectoryStatusLabel extends StatelessWidget {
