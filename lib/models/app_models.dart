@@ -423,6 +423,42 @@ class ConfigItem {
   final bool isEditable;
 }
 
+enum RuntimeSettingValueType { durationString, integer, boolean, plainString }
+
+class RuntimeSettingRecord {
+  const RuntimeSettingRecord({
+    required this.key,
+    required this.label,
+    required this.description,
+    required this.type,
+    required this.rawValue,
+    required this.displayValue,
+    required this.isConfigured,
+  });
+
+  final String key;
+  final String label;
+  final String description;
+  final RuntimeSettingValueType type;
+  final String? rawValue;
+  final String displayValue;
+  final bool isConfigured;
+}
+
+class ConfigRuntimeSettingsData {
+  const ConfigRuntimeSettingsData({
+    required this.document,
+    required this.records,
+  });
+
+  final ConfigDocumentData document;
+  final List<RuntimeSettingRecord> records;
+
+  RuntimeSettingRecord recordFor(String key) {
+    return records.firstWhere((record) => record.key == key);
+  }
+}
+
 class ConfigSectionData {
   const ConfigSectionData({
     required this.title,
@@ -482,10 +518,15 @@ class ConfigSavePreview {
 }
 
 class ConfigWorkspaceData {
-  const ConfigWorkspaceData({required this.sections, required this.documents});
+  const ConfigWorkspaceData({
+    required this.sections,
+    required this.documents,
+    this.runtimeSettings,
+  });
 
   final List<ConfigSectionData> sections;
   final List<ConfigDocumentData> documents;
+  final ConfigRuntimeSettingsData? runtimeSettings;
 }
 
 class DiagnoseCheck {

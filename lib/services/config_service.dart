@@ -4,6 +4,100 @@ import 'dart:io';
 
 import 'package:mise_gui/models/app_models.dart';
 
+class _RuntimeSettingDefinition {
+  const _RuntimeSettingDefinition({
+    required this.key,
+    required this.label,
+    required this.description,
+    required this.type,
+  });
+
+  final String key;
+  final String label;
+  final String description;
+  final RuntimeSettingValueType type;
+}
+
+const _runtimeSettingDefinitions = <_RuntimeSettingDefinition>[
+  _RuntimeSettingDefinition(
+    key: 'http_timeout',
+    label: 'HTTP 超时',
+    description: '控制 mise 下载、查询远端版本等 HTTP 请求的超时时间，例如 30s、5m。',
+    type: RuntimeSettingValueType.durationString,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'http_retries',
+    label: 'HTTP 重试',
+    description: '控制网络请求失败后的重试次数，0 表示不重试。',
+    type: RuntimeSettingValueType.integer,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'jobs',
+    label: '并发任务',
+    description: '控制安装插件或运行时的并发数量。',
+    type: RuntimeSettingValueType.integer,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'yes',
+    label: '自动确认',
+    description: '自动回答 yes，适合明确希望减少命令交互的场景。',
+    type: RuntimeSettingValueType.boolean,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'not_found_auto_install',
+    label: '缺失自动安装',
+    description: '运行未安装工具时，允许 mise 自动安装缺失版本。',
+    type: RuntimeSettingValueType.boolean,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'verbose',
+    label: '详细日志',
+    description: '安装和执行过程中输出更多诊断信息。',
+    type: RuntimeSettingValueType.boolean,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'experimental',
+    label: '实验功能',
+    description: '启用 mise 的实验性功能。',
+    type: RuntimeSettingValueType.boolean,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'paranoid',
+    label: '严格模式',
+    description: '启用更保守的安全检查。',
+    type: RuntimeSettingValueType.boolean,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'raw',
+    label: '原始输出',
+    description: '直接透传插件标准输入、输出和错误输出。',
+    type: RuntimeSettingValueType.boolean,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'always_keep_download',
+    label: '保留下载文件',
+    description: '安装后保留下载的归档或源码文件，便于排查安装问题。',
+    type: RuntimeSettingValueType.boolean,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'always_keep_install',
+    label: '保留失败安装',
+    description: '安装失败时保留中间目录，便于检查失败原因。',
+    type: RuntimeSettingValueType.boolean,
+  ),
+  _RuntimeSettingDefinition(
+    key: 'env_file',
+    label: '环境文件',
+    description: '指定 mise 自动加载的 dotenv 文件路径，例如 .env。',
+    type: RuntimeSettingValueType.plainString,
+  ),
+];
+
+final _runtimeSettingDefinitionByKey = {
+  for (final definition in _runtimeSettingDefinitions)
+    definition.key: definition,
+};
+
 abstract class ConfigService {
   Future<ConfigWorkspaceData> fetchWorkspace({
     String? projectPath,
@@ -17,6 +111,11 @@ abstract class ConfigService {
     required String nextContent,
   });
 
+  Future<ConfigSavePreview> previewRuntimeSettingsSave({
+    required ConfigDocumentData document,
+    required Map<String, String?> values,
+  });
+
   Future<void> saveDocument({
     required ConfigDocumentData document,
     required String nextContent,
@@ -24,7 +123,10 @@ abstract class ConfigService {
 }
 
 class LiveConfigService implements ConfigService {
-  const LiveConfigService();
+  const LiveConfigService({String? homeDirectory})
+    : _homeDirectory = homeDirectory;
+
+  final String? _homeDirectory;
 
   @override
   Future<ConfigWorkspaceData> fetchWorkspace({
@@ -58,15 +160,14 @@ class LiveConfigService implements ConfigService {
       final projectConfig = resolvedProjectConfigPath == null
           ? null
           : await _readFileIfExists(resolvedProjectConfigPath);
-      final documents = <ConfigDocumentData>[
-        _buildDocument(
-          id: 'global',
-          title: '全局 TOML',
-          path: globalPath,
-          content: globalConfig,
-          description: '查看或编辑 ~/.config/mise/config.toml，这里通常决定全局默认工具链和基础设置。',
-        ),
-      ];
+      final globalDocument = _buildDocument(
+        id: 'global',
+        title: '全局 TOML',
+        path: globalPath,
+        content: globalConfig,
+        description: '查看或编辑 ~/.config/mise/config.toml，这里通常决定全局默认工具链和基础设置。',
+      );
+      final documents = <ConfigDocumentData>[globalDocument];
       if (resolvedProjectConfigPath != null && projectDocumentName != null) {
         documents.add(
           _buildDocument(
@@ -113,7 +214,11 @@ class LiveConfigService implements ConfigService {
         );
       }
 
-      return ConfigWorkspaceData(sections: sections, documents: documents);
+      return ConfigWorkspaceData(
+        sections: sections,
+        documents: documents,
+        runtimeSettings: _buildRuntimeSettingsData(globalDocument),
+      );
     } catch (error) {
       final globalPath = _globalConfigPath();
       final resolvedProjectPath = includeProjectConfig
@@ -215,8 +320,20 @@ class LiveConfigService implements ConfigService {
     await file.writeAsString(_normalizeContent(nextContent));
   }
 
+  @override
+  Future<ConfigSavePreview> previewRuntimeSettingsSave({
+    required ConfigDocumentData document,
+    required Map<String, String?> values,
+  }) async {
+    final nextContent = _applyRuntimeSettingValues(
+      content: document.content,
+      values: values,
+    );
+    return previewDocumentSave(document: document, nextContent: nextContent);
+  }
+
   String _globalConfigPath() {
-    final home = Platform.environment['HOME'];
+    final home = _homeDirectory ?? Platform.environment['HOME'];
     if (home == null || home.isEmpty) {
       return '.config/mise/config.toml';
     }
@@ -262,6 +379,31 @@ class LiveConfigService implements ConfigService {
       description: description,
       commandPreview: ['cat $path', '# 通过图形界面直接编辑文件'].join('\n'),
       exists: content != null,
+    );
+  }
+
+  ConfigRuntimeSettingsData _buildRuntimeSettingsData(
+    ConfigDocumentData document,
+  ) {
+    final rawSettings = _parseRawAssignments(
+      _extractSection(document.content, 'settings'),
+    );
+    return ConfigRuntimeSettingsData(
+      document: document,
+      records: [
+        for (final definition in _runtimeSettingDefinitions)
+          RuntimeSettingRecord(
+            key: definition.key,
+            label: definition.label,
+            description: definition.description,
+            type: definition.type,
+            rawValue: rawSettings[definition.key],
+            displayValue: rawSettings.containsKey(definition.key)
+                ? _displayTomlScalar(rawSettings[definition.key]!)
+                : '未设置',
+            isConfigured: rawSettings.containsKey(definition.key),
+          ),
+      ],
     );
   }
 
@@ -435,6 +577,14 @@ class LiveConfigService implements ConfigService {
   }
 
   Map<String, String> _parseAssignments(String? section) {
+    final raw = _parseRawAssignments(section);
+    return {
+      for (final entry in raw.entries)
+        entry.key: _displayTomlScalar(entry.value),
+    };
+  }
+
+  Map<String, String> _parseRawAssignments(String? section) {
     if (section == null || section.trim().isEmpty) {
       return const <String, String>{};
     }
@@ -455,12 +605,169 @@ class LiveConfigService implements ConfigService {
       final key = trimmed
           .substring(0, separatorIndex)
           .trim()
-          .replaceAll('"', '');
+          .replaceAll('"', '')
+          .replaceAll("'", '');
       final value = trimmed.substring(separatorIndex + 1).trim();
       result[key] = value;
     }
 
     return result;
+  }
+
+  String _applyRuntimeSettingValues({
+    required String content,
+    required Map<String, String?> values,
+  }) {
+    final editableValues = {
+      for (final entry in values.entries)
+        if (_runtimeSettingDefinitionByKey.containsKey(entry.key))
+          entry.key: entry.value,
+    };
+    if (editableValues.isEmpty) {
+      return _normalizeContent(content);
+    }
+    final hasValueToWrite = editableValues.values.any(
+      (value) => value != null && value.trim().isNotEmpty,
+    );
+
+    final lines = const LineSplitter().convert(content.replaceAll('\r\n', '\n'));
+    var settingsStart = -1;
+    var settingsEnd = lines.length;
+
+    for (var index = 0; index < lines.length; index++) {
+      final trimmed = lines[index].trim();
+      if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) {
+        continue;
+      }
+      if (trimmed == '[settings]') {
+        settingsStart = index;
+        settingsEnd = lines.length;
+        continue;
+      }
+      if (settingsStart != -1 && index > settingsStart) {
+        settingsEnd = index;
+        break;
+      }
+    }
+
+    if (settingsStart == -1) {
+      if (!hasValueToWrite) {
+        return _normalizeContent(content);
+      }
+      final nextLines = [...lines];
+      if (nextLines.isNotEmpty && nextLines.last.trim().isNotEmpty) {
+        nextLines.add('');
+      }
+      nextLines.add('[settings]');
+      for (final definition in _runtimeSettingDefinitions) {
+        if (!editableValues.containsKey(definition.key)) {
+          continue;
+        }
+        final rawValue = editableValues[definition.key];
+        if (rawValue == null || rawValue.trim().isEmpty) {
+          continue;
+        }
+        nextLines.add(
+          '${definition.key} = ${_formatRuntimeSettingValue(definition, rawValue)}',
+        );
+      }
+      return _normalizeContent(nextLines.join('\n'));
+    }
+
+    final before = lines.sublist(0, settingsStart + 1);
+    final sectionLines = lines.sublist(settingsStart + 1, settingsEnd);
+    final after = lines.sublist(settingsEnd);
+    final handledKeys = <String>{};
+    final nextSectionLines = <String>[];
+
+    for (final line in sectionLines) {
+      final key = _assignmentKeyForLine(line);
+      if (key == null || !editableValues.containsKey(key)) {
+        nextSectionLines.add(line);
+        continue;
+      }
+
+      handledKeys.add(key);
+      final rawValue = editableValues[key];
+      if (rawValue == null || rawValue.trim().isEmpty) {
+        continue;
+      }
+      final definition = _runtimeSettingDefinitionByKey[key]!;
+      nextSectionLines.add(
+        '$key = ${_formatRuntimeSettingValue(definition, rawValue)}',
+      );
+    }
+
+    for (final definition in _runtimeSettingDefinitions) {
+      if (!editableValues.containsKey(definition.key) ||
+          handledKeys.contains(definition.key)) {
+        continue;
+      }
+      final rawValue = editableValues[definition.key];
+      if (rawValue == null || rawValue.trim().isEmpty) {
+        continue;
+      }
+      nextSectionLines.add(
+        '${definition.key} = ${_formatRuntimeSettingValue(definition, rawValue)}',
+      );
+    }
+
+    return _normalizeContent([
+      ...before,
+      ...nextSectionLines,
+      ...after,
+    ].join('\n'));
+  }
+
+  String? _assignmentKeyForLine(String line) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty ||
+        trimmed.startsWith('#') ||
+        trimmed.startsWith('[') ||
+        !trimmed.contains('=')) {
+      return null;
+    }
+    final separatorIndex = trimmed.indexOf('=');
+    return trimmed
+        .substring(0, separatorIndex)
+        .trim()
+        .replaceAll('"', '')
+        .replaceAll("'", '');
+  }
+
+  String _formatRuntimeSettingValue(
+    _RuntimeSettingDefinition definition,
+    String value,
+  ) {
+    final trimmed = value.trim();
+    return switch (definition.type) {
+      RuntimeSettingValueType.integer => int.parse(trimmed).toString(),
+      RuntimeSettingValueType.boolean => trimmed.toLowerCase() == 'true'
+          ? 'true'
+          : 'false',
+      RuntimeSettingValueType.durationString ||
+      RuntimeSettingValueType.plainString => _quoteTomlString(trimmed),
+    };
+  }
+
+  String _quoteTomlString(String value) {
+    final escaped = value.replaceAll('\\', r'\\').replaceAll('"', r'\"');
+    return '"$escaped"';
+  }
+
+  String _displayTomlScalar(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length >= 2) {
+      final first = trimmed[0];
+      final last = trimmed[trimmed.length - 1];
+      if ((first == '"' && last == '"') || (first == "'" && last == "'")) {
+        return trimmed
+            .substring(1, trimmed.length - 1)
+            .replaceAll(r'\"', '"')
+            .replaceAll(r'\\', '\\');
+      }
+    }
+    return trimmed;
   }
 
   String _normalizeContent(String value) {
@@ -633,6 +940,21 @@ class MockConfigService implements ConfigService {
       hasChanges: document.content != nextContent,
       createsFile: !document.exists,
     );
+  }
+
+  @override
+  Future<ConfigSavePreview> previewRuntimeSettingsSave({
+    required ConfigDocumentData document,
+    required Map<String, String?> values,
+  }) async {
+    final nextContent = [
+      document.content.trimRight(),
+      '',
+      '[settings]',
+      for (final entry in values.entries)
+        if (entry.value != null) '${entry.key} = ${entry.value}',
+    ].join('\n');
+    return previewDocumentSave(document: document, nextContent: nextContent);
   }
 
   @override

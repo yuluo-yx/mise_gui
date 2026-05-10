@@ -8,6 +8,7 @@ import 'package:mise_gui/app/theme/app_theme.dart';
 import 'package:mise_gui/features/config/application/config_provider.dart';
 import 'package:mise_gui/features/projects/application/projects_provider.dart';
 import 'package:mise_gui/models/app_models.dart';
+import 'package:mise_gui/shared/ui/action_preview_dialog.dart';
 import 'package:mise_gui/shared/ui/app_page_scaffold.dart';
 import 'package:mise_gui/shared/ui/app_panel.dart';
 import 'package:mise_gui/shared/ui/async_state_view.dart';
@@ -103,6 +104,17 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
                 document: document,
               ),
             ),
+            if (workspace.runtimeSettings case final runtimeSettings?) ...[
+              const SizedBox(height: 18),
+              _RuntimeSettingsPanel(
+                settings: runtimeSettings,
+                onEdit: () => _openRuntimeSettingsEditor(
+                  context: context,
+                  ref: ref,
+                  settings: runtimeSettings,
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             for (final section in workspace.sections)
               Padding(
@@ -133,6 +145,30 @@ class _ConfigPageState extends ConsumerState<ConfigPage> {
       messenger.removeCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(content: Text('${document.title} 已写回 ${document.fileName}')),
+      );
+    }
+  }
+
+  Future<void> _openRuntimeSettingsEditor({
+    required BuildContext context,
+    required WidgetRef ref,
+    required ConfigRuntimeSettingsData settings,
+  }) async {
+    final didSave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) =>
+          _RuntimeSettingsEditorDialog(settings: settings),
+    );
+
+    if (didSave == true && context.mounted) {
+      ref.invalidate(configProvider);
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.removeCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('全局运行时设置已写回 ${settings.document.fileName}'),
+        ),
       );
     }
   }
@@ -480,6 +516,102 @@ class _DocumentPathLine extends StatelessWidget {
   }
 }
 
+class _RuntimeSettingsPanel extends StatelessWidget {
+  const _RuntimeSettingsPanel({required this.settings, required this.onEdit});
+
+  final ConfigRuntimeSettingsData settings;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final configuredCount = settings.records
+        .where((record) => record.isConfigured)
+        .length;
+    final visibleRecords = settings.records.take(4).toList();
+
+    return AppPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 16,
+            runSpacing: 14,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '全局运行时设置',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '结构化编辑 ~/.config/mise/config.toml 里的 [settings] 常用项。',
+                      style: TextStyle(color: colors.textMuted, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: onEdit,
+                icon: const Icon(Icons.tune_rounded),
+                label: const Text('编辑运行时设置'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              StatusBadge(
+                label: '$configuredCount 项已配置',
+                level: configuredCount == 0
+                    ? HealthLevel.info
+                    : HealthLevel.healthy,
+              ),
+              StatusBadge(
+                label: settings.document.exists ? '全局配置已存在' : '待创建全局配置',
+                level: settings.document.exists
+                    ? HealthLevel.healthy
+                    : HealthLevel.info,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          for (var index = 0; index < visibleRecords.length; index++) ...[
+            _ConfigItemRow(
+              item: ConfigItem(
+                label: visibleRecords[index].label,
+                value: visibleRecords[index].displayValue,
+                detail: visibleRecords[index].description,
+                level: visibleRecords[index].isConfigured
+                    ? HealthLevel.healthy
+                    : HealthLevel.info,
+                isEditable: true,
+              ),
+            ),
+            if (index != visibleRecords.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: colors.border.withValues(alpha: 0.9),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ConfigSection extends StatelessWidget {
   const _ConfigSection({required this.section});
 
@@ -630,6 +762,476 @@ class _ConfigRawPanel extends StatelessWidget {
         children: [_CodePanel(title: 'TOML', content: content, height: 320)],
       ),
     );
+  }
+}
+
+enum _RuntimeBooleanChoice {
+  unset('跟随默认'),
+  enabled('开启'),
+  disabled('关闭');
+
+  const _RuntimeBooleanChoice(this.label);
+
+  final String label;
+}
+
+class _RuntimeSettingsEditorDialog extends ConsumerStatefulWidget {
+  const _RuntimeSettingsEditorDialog({required this.settings});
+
+  final ConfigRuntimeSettingsData settings;
+
+  @override
+  ConsumerState<_RuntimeSettingsEditorDialog> createState() =>
+      _RuntimeSettingsEditorDialogState();
+}
+
+class _RuntimeSettingsEditorDialogState
+    extends ConsumerState<_RuntimeSettingsEditorDialog> {
+  late final Map<String, TextEditingController> _controllers;
+  late final Map<String, _RuntimeBooleanChoice> _booleanValues;
+  String? _error;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {
+      for (final record in widget.settings.records)
+        if (record.type != RuntimeSettingValueType.boolean)
+          record.key: TextEditingController(
+            text: record.isConfigured ? record.displayValue : '',
+          ),
+    };
+    _booleanValues = {
+      for (final record in widget.settings.records)
+        if (record.type == RuntimeSettingValueType.boolean)
+          record.key: _choiceFor(record),
+    };
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+    final size = MediaQuery.sizeOf(context);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(28),
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: size.width * 0.78,
+        height: size.height * 0.82,
+        constraints: const BoxConstraints(maxWidth: 980),
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: colors.panel,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: colors.borderStrong),
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 32,
+              color: colors.backgroundDeep.withValues(alpha: 0.24),
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '编辑全局运行时设置',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      SelectableText(
+                        widget.settings.document.path,
+                        style: TextStyle(
+                          color: colors.textMuted,
+                          fontFamily: 'FiraCode',
+                          fontSize: 12,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: _saving
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colors.danger.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colors.danger.withValues(alpha: 0.32),
+                  ),
+                ),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: colors.danger, height: 1.45),
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            Expanded(
+              child: ListView.separated(
+                itemCount: widget.settings.records.length,
+                separatorBuilder: (context, index) => Divider(
+                  height: 28,
+                  thickness: 1,
+                  color: colors.border.withValues(alpha: 0.82),
+                ),
+                itemBuilder: (context, index) {
+                  final record = widget.settings.records[index];
+                  return _RuntimeSettingEditorRow(
+                    record: record,
+                    textController: _controllers[record.key],
+                    booleanValue: _booleanValues[record.key],
+                    onBooleanChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+                      setState(() {
+                        _booleanValues[record.key] = value;
+                        _error = null;
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.end,
+              children: [
+                OutlinedButton(
+                  onPressed: _saving
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  child: const Text('取消'),
+                ),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _previewAndSave,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(_saving ? '保存中...' : '预览并保存'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _previewAndSave() async {
+    final values = _collectValues();
+    if (values == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      final repository = ref.read(configRepositoryProvider);
+      final preview = await repository.previewRuntimeSettingsSave(
+        document: widget.settings.document,
+        values: values,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (!preview.hasChanges) {
+        _showFeedback('运行时设置没有变化。');
+        return;
+      }
+
+      final confirmed = await showActionPreviewDialog(
+        context,
+        data: ActionPreviewDialogData(
+          title: '确认保存运行时设置',
+          summary: '保存后会直接写回全局 mise 配置文件。',
+          command: preview.commandPreview,
+          level: HealthLevel.warning,
+          diffPreview: preview.diffPreview,
+          affectedFiles: [widget.settings.document.path],
+          impactScope: const ['影响后续 mise 命令读取到的全局 [settings]。'],
+          riskNotes: const ['保存前请确认差异预览符合预期。'],
+          confirmLabel: '保存设置',
+        ),
+      );
+      if (!confirmed || !mounted) {
+        return;
+      }
+
+      final stopwatch = Stopwatch()..start();
+      await repository.saveDocument(
+        document: widget.settings.document,
+        nextContent: preview.nextContent,
+      );
+      stopwatch.stop();
+      await ref
+          .read(historyServiceProvider)
+          .appendEntry(
+            HistoryEntry(
+              command: preview.commandPreview,
+              timestamp: _formatNow(),
+              detail: preview.createsFile
+                  ? '已通过界面创建并写入全局运行时设置。'
+                  : '已通过界面写回全局运行时设置。',
+              level: preview.createsFile
+                  ? HealthLevel.info
+                  : HealthLevel.warning,
+              status: HistoryStatus.success,
+              exitCode: 0,
+              durationMs: stopwatch.elapsedMilliseconds,
+              stdout: widget.settings.document.path,
+              stdoutSnippet: widget.settings.document.path,
+            ),
+          );
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  Map<String, String?>? _collectValues() {
+    final values = <String, String?>{};
+    for (final record in widget.settings.records) {
+      switch (record.type) {
+        case RuntimeSettingValueType.boolean:
+          final choice = _booleanValues[record.key];
+          if (choice == _RuntimeBooleanChoice.enabled) {
+            values[record.key] = 'true';
+          } else if (choice == _RuntimeBooleanChoice.disabled) {
+            values[record.key] = 'false';
+          } else {
+            values[record.key] = null;
+          }
+          continue;
+        case RuntimeSettingValueType.integer:
+          final value = _controllers[record.key]!.text.trim();
+          if (value.isEmpty) {
+            values[record.key] = null;
+            continue;
+          }
+          final number = int.tryParse(value);
+          final min = record.key == 'jobs' ? 1 : 0;
+          if (number == null || number < min) {
+            _setValidationError('${record.label} 必须是不小于 $min 的整数。');
+            return null;
+          }
+          values[record.key] = number.toString();
+          continue;
+        case RuntimeSettingValueType.durationString:
+          final value = _controllers[record.key]!.text.trim();
+          if (value.isEmpty) {
+            values[record.key] = null;
+            continue;
+          }
+          if (!_isValidDuration(value)) {
+            _setValidationError(
+              '${record.label} 需要填写带单位的时长，例如 30s、5m、1h。',
+            );
+            return null;
+          }
+          values[record.key] = value;
+          continue;
+        case RuntimeSettingValueType.plainString:
+          final value = _controllers[record.key]!.text.trim();
+          if (value.isEmpty) {
+            values[record.key] = null;
+            continue;
+          }
+          if (value.contains('\n') || value.contains('\r')) {
+            _setValidationError('${record.label} 不能包含换行。');
+            return null;
+          }
+          values[record.key] = value;
+          continue;
+      }
+    }
+    return values;
+  }
+
+  bool _isValidDuration(String value) {
+    return RegExp(
+      r'^\d+\s*(ms|s|m|h|d|day|days|week|weeks)$',
+      caseSensitive: false,
+    ).hasMatch(value);
+  }
+
+  void _setValidationError(String message) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _error = message;
+    });
+  }
+
+  void _showFeedback(String message) {
+    if (!mounted) {
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.removeCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _formatNow() {
+    final now = DateTime.now();
+    final hours = now.hour.toString().padLeft(2, '0');
+    final minutes = now.minute.toString().padLeft(2, '0');
+    return '$hours:$minutes';
+  }
+
+  static _RuntimeBooleanChoice _choiceFor(RuntimeSettingRecord record) {
+    if (!record.isConfigured) {
+      return _RuntimeBooleanChoice.unset;
+    }
+    return record.displayValue.toLowerCase() == 'true'
+        ? _RuntimeBooleanChoice.enabled
+        : _RuntimeBooleanChoice.disabled;
+  }
+}
+
+class _RuntimeSettingEditorRow extends StatelessWidget {
+  const _RuntimeSettingEditorRow({
+    required this.record,
+    required this.textController,
+    required this.booleanValue,
+    required this.onBooleanChanged,
+  });
+
+  final RuntimeSettingRecord record;
+  final TextEditingController? textController;
+  final _RuntimeBooleanChoice? booleanValue;
+  final ValueChanged<_RuntimeBooleanChoice?> onBooleanChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colorsOf(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked = constraints.maxWidth < 680;
+        final title = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              record.label,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              record.description,
+              style: TextStyle(color: colors.textMuted, height: 1.45),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              record.key,
+              style: TextStyle(
+                color: colors.textMuted.withValues(alpha: 0.82),
+                fontFamily: 'FiraCode',
+                fontSize: 12,
+              ),
+            ),
+          ],
+        );
+        final field = SizedBox(
+          width: stacked ? double.infinity : 240,
+          child: _field(),
+        );
+
+        if (stacked) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [title, const SizedBox(height: 12), field],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: title),
+            const SizedBox(width: 18),
+            field,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _field() {
+    if (record.type == RuntimeSettingValueType.boolean) {
+      return DropdownButtonFormField<_RuntimeBooleanChoice>(
+        initialValue: booleanValue,
+        isExpanded: true,
+        decoration: const InputDecoration(isDense: true),
+        items: [
+          for (final value in _RuntimeBooleanChoice.values)
+            DropdownMenuItem(value: value, child: Text(value.label)),
+        ],
+        onChanged: onBooleanChanged,
+      );
+    }
+
+    return TextField(
+      controller: textController,
+      autocorrect: false,
+      enableSuggestions: false,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: _hintFor(record),
+      ),
+    );
+  }
+
+  String _hintFor(RuntimeSettingRecord record) {
+    return switch (record.type) {
+      RuntimeSettingValueType.durationString => '30s',
+      RuntimeSettingValueType.integer => record.key == 'jobs' ? '4' : '0',
+      RuntimeSettingValueType.plainString => '.env',
+      RuntimeSettingValueType.boolean => '',
+    };
   }
 }
 
